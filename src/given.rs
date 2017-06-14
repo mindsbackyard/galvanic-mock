@@ -81,81 +81,81 @@ mod tests {
     fn should_parse_given_return_from_call() {
         let (var, method, args, ret, repeat) = parse_given("mock.foo() then_return_from || { 2 } always").expect("");
 
-        assert_that!(var, eq(syn::Ident::from("mock")));
-        assert_that!(method, eq(syn::Ident::from("foo")));
+        assert_that!(&var, eq(syn::Ident::from("mock")));
+        assert_that!(&method, eq(syn::Ident::from("foo")));
         assert_that!(args.is_empty(), otherwise "some arguments are detected");
-        assert_that!(ret, eq(Return::FromCall(syn::parse::expr("|| { 2 }").expect(""))));
-        assert_that!(repeat, eq(Repeat::Always));
+        assert_that!(&ret, eq(Return::FromCall(syn::parse::expr("|| { 2 }").expect(""))));
+        assert_that!(&repeat, eq(Repeat::Always));
     }
 
     #[test]
     fn should_parse_given_spy_on_object() {
         let (var, method, args, ret, repeat) = parse_given("mock.foo() then_spy_on_object always").expect("");
 
-        assert_that!(var, eq(syn::Ident::from("mock")));
-        assert_that!(method, eq(syn::Ident::from("foo")));
+        assert_that!(&var, eq(syn::Ident::from("mock")));
+        assert_that!(&method, eq(syn::Ident::from("foo")));
         assert_that!(args.is_empty(), otherwise "some arguments are detected");
-        assert_that!(ret, eq(Return::FromSpy));
-        assert_that!(repeat, eq(Repeat::Always));
+        assert_that!(&ret, eq(Return::FromSpy));
+        assert_that!(&repeat, eq(Repeat::Always));
     }
 
     #[test]
     fn should_parse_given_panic() {
         let (var, method, args, ret, repeat) = parse_given("mock.foo() then_panic always").expect("");
 
-        assert_that!(var, eq(syn::Ident::from("mock")));
-        assert_that!(method, eq(syn::Ident::from("foo")));
+        assert_that!(&var, eq(syn::Ident::from("mock")));
+        assert_that!(&method, eq(syn::Ident::from("foo")));
         assert_that!(args.is_empty(), otherwise "some arguments are detected");
-        assert_that!(ret, eq(Return::Panic));
-        assert_that!(repeat, eq(Repeat::Always));
+        assert_that!(&ret, eq(Return::Panic));
+        assert_that!(&repeat, eq(Repeat::Always));
     }
 
     #[test]
     fn should_parse_given_once() {
         let (var, method, args, ret, repeat) = parse_given("mock.foo() then_return 1 once").expect("");
 
-        assert_that!(var, eq(syn::Ident::from("mock")));
-        assert_that!(method, eq(syn::Ident::from("foo")));
+        assert_that!(&var, eq(syn::Ident::from("mock")));
+        assert_that!(&method, eq(syn::Ident::from("foo")));
         assert_that!(args.is_empty(), otherwise "some arguments are detected");
-        assert_that!(ret, eq(Return::FromValue(syn::parse::expr("1").expect(""))));
-        assert_that!(repeat, eq(Repeat::Times(syn::parse::expr("1").expect(""))));
+        assert_that!(&ret, eq(Return::FromValue(syn::parse::expr("1").expect(""))));
+        assert_that!(&repeat, eq(Repeat::Times(syn::parse::expr("1").expect(""))));
     }
 
     #[test]
     fn should_parse_given_times() {
         let (var, method, args, ret, repeat) = parse_given("mock.foo() then_return 1 times 2").expect("");
 
-        assert_that!(var, eq(syn::Ident::from("mock")));
-        assert_that!(method, eq(syn::Ident::from("foo")));
+        assert_that!(&var, eq(syn::Ident::from("mock")));
+        assert_that!(&method, eq(syn::Ident::from("foo")));
         assert_that!(args.is_empty(), otherwise "some arguments are detected");
-        assert_that!(ret, eq(Return::FromValue(syn::parse::expr("1").expect(""))));
-        assert_that!(repeat, eq(Repeat::Times(syn::parse::expr("2").expect(""))));
+        assert_that!(&ret, eq(Return::FromValue(syn::parse::expr("1").expect(""))));
+        assert_that!(&repeat, eq(Repeat::Times(syn::parse::expr("2").expect(""))));
     }
 
     #[test]
     fn should_parse_given_always() {
         let (var, method, args, ret, repeat) = parse_given("mock.foo() then_return 1 always").expect("");
 
-        assert_that!(var, eq(syn::Ident::from("mock")));
-        assert_that!(method, eq(syn::Ident::from("foo")));
+        assert_that!(&var, eq(syn::Ident::from("mock")));
+        assert_that!(&method, eq(syn::Ident::from("foo")));
         assert_that!(args.is_empty(), otherwise "some arguments are detected");
-        assert_that!(ret, eq(Return::FromValue(syn::parse::expr("1").expect(""))));
-        assert_that!(repeat, eq(Repeat::Always));
+        assert_that!(&ret, eq(Return::FromValue(syn::parse::expr("1").expect(""))));
+        assert_that!(&repeat, eq(Repeat::Always));
     }
 
     #[test]
     fn should_parse_given_args() {
         let (var, method, args, ret, repeat) = parse_given("mock.foo(2, 4) then_return 1 always").expect("");
 
-        assert_that!(var, eq(syn::Ident::from("mock")));
-        assert_that!(method, eq(syn::Ident::from("foo")));
-        assert_that!(args, collection::contains_in_order(vec![syn::parse::expr("2").expect(""), syn::parse::expr("4").expect("")]));
-        assert_that!(ret, eq(Return::FromValue(syn::parse::expr("1").expect(""))));
-        assert_that!(repeat, eq(Repeat::Always));
+        assert_that!(&var, eq(syn::Ident::from("mock")));
+        assert_that!(&method, eq(syn::Ident::from("foo")));
+        assert_that!(&args, collection::contains_in_order(vec![syn::parse::expr("2").expect(""), syn::parse::expr("4").expect("")]));
+        assert_that!(&ret, eq(Return::FromValue(syn::parse::expr("1").expect(""))));
+        assert_that!(&repeat, eq(Repeat::Always));
     }
 
     #[test]
     fn test_idents() {
-        assert_that!(syn::Ident::from("abc"), eq(syn::Ident::from("abc")));
+        assert_that!(&syn::Ident::from("abc"), eq(syn::Ident::from("abc")));
     }
 }
