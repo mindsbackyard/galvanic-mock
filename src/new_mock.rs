@@ -3,7 +3,7 @@ use syn;
 use syn::parse::IResult;
 
 use data::*;
-use util::{Singleton, gen_new_mock_type_name};
+use util::gen_new_mock_type_name;
 
 named!(comma_separated_types -> Vec<syn::Ty>,
     separated_nonempty_list!(punct!(","), syn::parse::ty)
@@ -29,10 +29,7 @@ pub fn handle_new_mock(source: &str, absolute_position: usize) -> (String, Strin
     if let IResult::Done(remainder, result) = parse_new_mock(source) {
         let (mock_var, req_traits) = result;
 
-        let singleton = MockVars::singleton();
-        let gate = singleton.inner.lock();
-        let mut mock_vars = gate.unwrap();
-
+        get_singleton_mut!(mock_vars of MockVars);
         let mock_type_name = gen_new_mock_type_name(absolute_position);
         mock_vars.push((mock_type_name.clone(), req_traits));
 
