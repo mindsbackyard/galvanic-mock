@@ -269,7 +269,8 @@ impl<'a> MockStructImplementer<'a> {
         })
     }
 
-    fn generate_given_behaviours_fields(&self, lifetime_to_bind_field: &syn::Lifetime) -> Vec<(syn::Ident, quote::Tokens, quote::Tokens)> {
+    fn generate_given_behaviours_fields(&self, lifetime_to_bind_field: &syn::Lifetime)
+                                        -> Vec<(syn::Ident, quote::Tokens, quote::Tokens)> {
         let mut fields = Vec::new();
         for (behaviour_factory, trait_info) in self.behaviour_factories.iter().zip(self.trait_infos.iter()) {
             for item in &trait_info.items {
@@ -285,11 +286,11 @@ impl<'a> MockStructImplementer<'a> {
     }
 
     fn generate_given_behaviours_field_for(&self,
-                                            behaviour_factory: &BehaviourFactory,
-                                            method_name: &syn::Ident,
-                                            method_signature: &syn::MethodSig,
-                                            lifetime_to_bind_field: &syn::Lifetime)
-                                            -> Option<(syn::Ident, quote::Tokens, quote::Tokens)> {
+                                           behaviour_factory: &BehaviourFactory,
+                                           method_name: &syn::Ident,
+                                           method_signature: &syn::MethodSig,
+                                           lifetime_to_bind_field: &syn::Lifetime)
+                                           -> Option<(syn::Ident, quote::Tokens, quote::Tokens)> {
         if !method_signature.generics.ty_params.is_empty() {
             // TODO try to handle generic methods; how to deal with monomorphization?
             panic!("Generic methods are not supported yet.")
@@ -390,33 +391,12 @@ impl<'a> TraitImplementer<'a> {
                                   _ => None
                               }).collect::<Vec<_>>();
 
-                // generate body
-                // tokens.append(&quote! {
-                //     let curried_args = (#(#args),*);
-                //     let mut maybe_exhausted_idx: Option<usize> = None;
-                //     let mut maybe_return_value: Option<#return_ty> = None;
-                //     for (idx, behaviour) in self.#given_behaviours.borrow_mut().iter_mut().enumerate() {
-                //         maybe_return_value = behaviour.try_match(&curried_args);
-                //         if maybe_return_value.is_some()  {
-                //             if behaviour.is_exhausted() {
-                //                 maybe_exhausted_idx = Some(idx);
-                //             }
-                //             break;
-                //         }
-                //     }
-                //
-                //     if let Some(return_value) = maybe_return_value {
-                //         let mut given_behaviours = self.#given_behaviours.borrow_mut();
-                //         if let Some(exhausted_idx) = maybe_exhausted_idx {
-                //             given_behaviours.remove(exhausted_idx);
-                //         }
-                //         return return_value;
-                //     }
-                //     panic!("No 'given' behaviour satisfied for call {}", stringify!(#func_name));
-                // }.to_string());
                 tokens.append(&quote! {
                     let curried_args = (#(#args),*);
-                    self.#given_behaviours.match_behaviour_or_fail(curried_args)
+                    match self.#given_behaviours.match_behaviour_or_fail(curried_args) {
+                        Some(ret) => ret,
+                        None => panic!("No 'given' behaviour satisfied.")
+                    }
                 }.to_string());
             }
 
