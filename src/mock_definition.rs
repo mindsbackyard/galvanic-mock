@@ -13,8 +13,8 @@ pub fn handle_define_mock<'a>(cx: &'a mut ExtCtxt, sp: Span, token_tree: &[Token
 
     match trait_item.node {
         syn::ItemKind::Trait(safety, generics, bounds, items) => {
-            get_singleton_mut!(defined_mocks of DefinedMocks);
-            defined_mocks.insert(trait_item.ident.clone(), TraitInfo::new(safety, generics, bounds, items));
+            get_singleton_mut!(mockable_traits of MockableTraits);
+            mockable_traits.insert(trait_item.ident.clone(), TraitInfo::new(safety, generics, bounds, items));
         },
         _ => cx.span_err(sp, "Expecting a trait definition")
     }

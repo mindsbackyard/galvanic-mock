@@ -8,6 +8,13 @@ use syntax::util::small_vector::SmallVector;
 use std::boxed::Box;
 use std::mem;
 
+pub fn type_name_of(ty: &syn::Ty) -> Option<syn::Ident> {
+    match ty {
+        &syn::Ty::Path(_, ref path) => path.segments.last()
+                                      .map(|seg| seg.ident.clone()),
+        _ => None
+    }
+}
 
 pub fn gen_new_mock_type_name(mock_intialization_pos: usize) -> syn::Ident {
     syn::Ident::from(format!("Mock{}", mock_intialization_pos))
@@ -26,45 +33,20 @@ fn convert_token_to_syntax_stmts<'a>(cx: &'a mut ExtCtxt, tokens: Vec<quote::Tok
 }
 
 #[macro_export]
-macro_rules! singleton {
-    ( $type_name: ident ) => {
-        impl $type_name {
-            pub fn singleton() -> Self {
-                use::std::mem;
-                use std::sync::{Once, ONCE_INIT};
-                // Initialize it to a null value
-                static mut SINGLETON: *const i8 = 0 as *const i8;
-                static ONCE: Once = ONCE_INIT;
-
-                unsafe {
-                    ONCE.call_once(|| {
-                        let data = Self::default();
-                        // Put it in the heap so it can outlive this call
-                        let ptr: *const Self = mem::transmute(Box::new(data));
-                        SINGLETON = mem::transmute(ptr);
-                    });
-                    let ptr: *const Self = mem::transmute(SINGLETON);
-                    (*ptr).clone()
-                }
-            }
-        }
-    }
+macro_rules! acquire {
+    ( $global_var: ident ) => { $global_var.lock().unwrap() }
 }
 
 #[macro_export]
 macro_rules! get_singleton {
     ( $var_name: ident of $type_name: ident ) => {
-        let singleton = $type_name::singleton();
-        let gate = singleton.inner.lock();
-        let $var_name = gate.unwrap();
+        let $var_name = $type_name.lock().unwrap();
     }
 }
 
 #[macro_export]
 macro_rules! get_singleton_mut {
     ( $var_name: ident of $type_name: ident ) => {
-        let singleton = $type_name::singleton();
-        let gate = singleton.inner.lock();
-        let mut $var_name = gate.unwrap();
+        let mut $var_name = $type_name.lock().unwrap();
     }
 }

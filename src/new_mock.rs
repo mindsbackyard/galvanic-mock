@@ -29,9 +29,12 @@ pub fn handle_new_mock(source: &str, absolute_position: usize) -> (String, Strin
     if let IResult::Done(remainder, result) = parse_new_mock(source) {
         let (mock_var, req_traits) = result;
 
-        get_singleton_mut!(mock_vars of MockVars);
+        get_singleton_mut!(requested_traits of RequestedTraits);
         let mock_type_name = gen_new_mock_type_name(absolute_position);
-        mock_vars.push((mock_type_name.clone(), req_traits));
+        requested_traits.insert(mock_type_name.clone(), req_traits);
+
+        get_singleton_mut!(var_to_type of MockVarToType);
+        var_to_type.insert(mock_var.clone(), mock_type_name.clone());
 
         let assignment_stmt = quote! { let #mock_var = #mock_type_name::new(); };
         return (assignment_stmt.to_string(), remainder.to_string());

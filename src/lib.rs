@@ -16,6 +16,7 @@ extern crate syntax;
 extern crate rustc;
 extern crate rustc_plugin;
 extern crate rustc_errors;
+#[macro_use] extern crate lazy_static;
 
 extern crate syn;
 #[macro_use] extern crate synom;
