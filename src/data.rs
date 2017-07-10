@@ -1,6 +1,10 @@
 use syn;
+use quote;
 use std::collections::{HashMap, BTreeMap};
 use std::sync::{Arc, Mutex};
+
+pub type ItemTokens = quote::Tokens;
+pub type ImplTokens = quote::Tokens;
 
 pub type TypeName = syn::Ident;
 pub type MockTypeName = syn::Ident;
@@ -40,8 +44,9 @@ impl TraitInfo {
     }
 }
 
+pub type MockableTraits = HashMap<TypeName, TraitInfo>;
 lazy_static! {
-    pub static ref MockableTraits: Mutex<HashMap<TypeName, TraitInfo>> = {
+    pub static ref MOCKABLE_TRAITS: Mutex<MockableTraits> = {
         Mutex::new(HashMap::new())
     };
 }
@@ -49,25 +54,27 @@ lazy_static! {
 
 pub type TraitList = Vec<syn::Ty>;
 
+pub type RequestedTraits = HashMap<TypeName, TraitList>;
 lazy_static! {
-    pub static ref RequestedTraits: Mutex<HashMap<TypeName, TraitList>> = {
+    pub static ref REQUESTED_TRAITS: Mutex<RequestedTraits> = {
         Mutex::new(HashMap::new())
     };
 }
 
+pub type MockVarToType = HashMap<VarName, TypeName>;
 lazy_static! {
-    pub static ref MockVarToType: Mutex<HashMap<VarName, TypeName>> = {
+    pub static ref MOCKVAR_TO_TYPE: Mutex<MockVarToType> = {
         Mutex::new(HashMap::new())
     };
 }
 
-
+#[derive(Clone)]
 pub enum BehaviourMatcher {
     Explicit(syn::Expr),
     PerArgument(Vec<syn::Expr>)
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug,PartialEq,Clone)]
 pub enum Return {
     FromValue(syn::Expr),
     FromCall(syn::Expr),
@@ -75,12 +82,13 @@ pub enum Return {
     Panic
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug,PartialEq,Clone)]
 pub enum Repeat {
     Times(syn::Expr),
     Always
 }
 
+#[derive(Clone)]
 pub struct GivenStatement {
     pub stmt_id: usize,
     pub maybe_ufc_trait: Option<syn::Ty>,
@@ -95,14 +103,27 @@ pub struct GivenBlockInfo {
     pub given_statements: Vec<GivenStatement>
 }
 
+pub type GivenBlocks = HashMap<MockTypeName, Vec<GivenBlockInfo>>;
 lazy_static! {
-    pub static ref GivenBlocks: Mutex<HashMap<MockTypeName, Vec<GivenBlockInfo>>> = {
+    pub static ref GIVEN_BLOCKS: Mutex<GivenBlocks> = {
         Mutex::new(HashMap::new())
     };
 }
 
+pub struct Binding {
+    pub block_id: usize,
+    pub fields: Vec<BindingField>
+}
+
+pub struct BindingField {
+    pub name: VarName,
+    pub ty: syn::Ty,
+    pub initializer: syn::Expr
+}
+
+pub type Bindings = Vec<Binding>;
 lazy_static! {
-    pub static ref BINDINGS: Mutex<Vec<(usize, Vec<(VarName, syn::Ty, syn::Expr)>)>> = {
+    pub static ref BINDINGS: Mutex<Bindings> = {
         Mutex::new(Vec::new())
     };
 }
