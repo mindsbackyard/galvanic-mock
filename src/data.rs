@@ -13,7 +13,7 @@ pub type TraitIdx = usize;
 pub type MethodName = syn::Ident;
 pub type Args = Vec<syn::Expr>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TraitInfo {
     pub safety: syn::Unsafety,
     pub generics: syn::Generics,
@@ -61,14 +61,40 @@ lazy_static! {
     };
 }
 
-pub type MockVarToType = HashMap<VarName, TypeName>;
+pub struct MockedTraitUnifier {
+    next_id: usize,
+    trait_to_unique_id: HashMap<syn::Ty, usize>
+}
+
+impl MockedTraitUnifier {
+    pub fn new() -> Self {
+        Self { next_id: 1, trait_to_unique_id: HashMap::new() }
+    }
+
+    pub fn register_trait(&mut self, new_trait_ty: syn::Ty) {
+        if self.trait_to_unique_id.get(&new_trait_ty).is_none() {
+            self.trait_to_unique_id.insert(new_trait_ty, self.next_id);
+            self.next_id += 1;
+        }
+    }
+
+    pub fn get_unique_id_for(&self, trait_ty: &syn::Ty) -> Option<usize> {
+        self.trait_to_unique_id.get(trait_ty).cloned()
+    }
+
+    pub fn get_traits(&self) -> Vec<syn::Ty> {
+        self.trait_to_unique_id.keys().cloned().collect()
+    }
+}
+
 lazy_static! {
-    pub static ref MOCKVAR_TO_TYPE: Mutex<MockVarToType> = {
-        Mutex::new(HashMap::new())
+    pub static ref MOCKED_TRAIT_UNIFIER: Mutex<MockedTraitUnifier> = {
+        Mutex::new(MockedTraitUnifier::new())
     };
 }
 
-#[derive(Clone)]
+
+#[derive(Debug,Clone)]
 pub enum BehaviourMatcher {
     Explicit(syn::Expr),
     PerArgument(Vec<syn::Expr>)
@@ -88,25 +114,21 @@ pub enum Repeat {
     Always
 }
 
-#[derive(Clone)]
+#[derive(Debug,Clone)]
 pub struct GivenStatement {
+    pub block_id: usize,
     pub stmt_id: usize,
-    pub maybe_ufc_trait: Option<syn::Ty>,
+    pub ufc_trait: syn::Ty,
     pub method: MethodName,
     pub matcher: BehaviourMatcher,
     pub return_stmt: Return,
     pub repeat: Repeat
 }
 
-pub struct GivenBlockInfo {
-    pub block_id: usize,
-    pub given_statements: Vec<GivenStatement>
-}
-
-pub type GivenBlocks = HashMap<MockTypeName, Vec<GivenBlockInfo>>;
+pub type GivenStatements = Vec<GivenStatement>;
 lazy_static! {
-    pub static ref GIVEN_BLOCKS: Mutex<GivenBlocks> = {
-        Mutex::new(HashMap::new())
+    pub static ref GIVEN_STATEMENTS: Mutex<GivenStatements> = {
+        Mutex::new(Vec::new())
     };
 }
 

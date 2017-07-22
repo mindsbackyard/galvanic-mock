@@ -6,7 +6,7 @@
 mod mock_definition;
 mod new_mock;
 mod given;
-mod generate_mocks;
+mod generate;
 mod data;
 
 #[cfg(test)]#[macro_use]
@@ -38,16 +38,16 @@ use syntax::visit;
 
 use syn::parse::IResult;
 
-use mock_definition::handle_define_mock;
+use mock_definition::handle_mockable;
 use new_mock::handle_new_mock;
 use given::handle_given;
-use generate_mocks::handle_generate_mocks;
+use generate::handle_generate_mocks;
 use data::*;
 
 
 #[plugin_registrar]
 pub fn plugin_registrar(reg: &mut Registry) {
-    reg.register_macro("define_mock", handle_define_mock);
+    reg.register_macro("mockable", handle_mockable);
     reg.register_macro("use_mocks", handle_use_mocks);
 }
 

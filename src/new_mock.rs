@@ -9,34 +9,28 @@ named!(comma_separated_types -> Vec<syn::Ty>,
     separated_nonempty_list!(punct!(","), syn::parse::ty)
 );
 
-named!(parse_new_mock_content -> (syn::Ident, Vec<syn::Ty>),
-    preceded!(keyword!("let"), tuple!(
-        terminated!(syn::parse::ident, punct!(":")),
-        comma_separated_types
-    ))
-);
-
-named!(parse_new_mock -> (syn::Ident, Vec<syn::Ty>),
+named!(parse_new_mock -> Vec<syn::Ty>,
     terminated!(
         preceded!(tuple!(keyword!("new_mock"), punct!("!")),
-                  delimited!(punct!("("), call!(parse_new_mock_content), punct!(")"))
+                  delimited!(punct!("("), call!(comma_separated_types), punct!(")"))
         ), punct!(";")
     )
 );
 
 pub fn handle_new_mock(source: &str, absolute_position: usize) -> (String, String) {
-    println!("Handling new_mock!: {}", source);
-    if let IResult::Done(remainder, result) = parse_new_mock(source) {
-        let (mock_var, req_traits) = result;
+    //println!("Handling new_mock!: {}", source);
+    if let IResult::Done(remainder, req_traits) = parse_new_mock(source) {
+        let mut requested_traits = acquire!(REQUESTED_TRAITS);
+        let mut mocked_trait_unifier = acquire!(MOCKED_TRAIT_UNIFIER);
 
-        get_singleton_mut!(requested_traits of RequestedTraits);
         let mock_type_name = gen_new_mock_type_name(absolute_position);
-        requested_traits.insert(mock_type_name.clone(), req_traits);
+        requested_traits.insert(mock_type_name.clone(), req_traits.clone());
 
-        get_singleton_mut!(var_to_type of MockVarToType);
-        var_to_type.insert(mock_var.clone(), mock_type_name.clone());
+        for trait_ty in req_traits {
+            mocked_trait_unifier.register_trait(trait_ty);
+        }
 
-        let assignment_stmt = quote! { let #mock_var = #mock_type_name::new(); };
+        let assignment_stmt = quote! { #mock_type_name::new(); };
         return (assignment_stmt.to_string(), remainder.to_string());
     }
 

@@ -36,9 +36,9 @@ impl TypeParamMapper {
                     for &(ref param, ref ty) in &self.type_param_and_type {
                         if x == param { return ty.to_string(); }
                     }
-                    x.to_string()
+                    x.to_string() + " "
                 }).collect::<String>()
-        ).expect(&format!("Unable to instantiate generic type {:?} with: {:?}",
+        ).expect(&format!("Unable to instantiate generic type `{:?}` with: {:?}",
                           generic_ty_tokens, self.type_param_and_type
         ))
     }

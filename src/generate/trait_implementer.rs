@@ -4,61 +4,55 @@ use quote::ToTokens;
 
 use std;
 
+use super::InstantiatedTrait;
+use super::typed_arguments_for_method_sig;
 use super::type_param_mapper::*;
 use super::mock_struct_implementer::*;
 use data::*;
 
 pub struct TraitImplementer<'a> {
     mock_type_name: &'a syn::Ident,
-    requested_trait_type: &'a syn::Ty,
-    trait_info: &'a TraitInfo,
-    mapper: &'a TypeParamMapper,
-    given_blocks: &'a [GivenBlockInfo]
+    instantiated_trait: &'a InstantiatedTrait
 }
 
 impl<'a> TraitImplementer<'a> {
-    pub fn for_(mock_type_name: &'a syn::Ident, trait_id: usize, requested_trait_type: &'a syn::Ty,
-                trait_info: &'a TraitInfo, mapper: &'a TypeParamMapper, given_blocks_for_trait: &'a [GivenBlockInfo])
+    pub fn for_(mock_type_name: &'a syn::Ident, instantiated_trait: &'a InstantiatedTrait)
                 -> TraitImplementer<'a>  {
         TraitImplementer {
             mock_type_name: mock_type_name,
-            requested_trait_type: requested_trait_type,
-            trait_info: trait_info,
-            mapper: mapper,
-            given_blocks: given_blocks_for_trait
+            instantiated_trait: instantiated_trait
         }
     }
 
     pub fn implement(&self) -> quote::Tokens {
-        let methods: Vec<_> = self.trait_info.items.iter().flat_map(|item|
+        let methods: Vec<_> = self.instantiated_trait.info.items.iter().flat_map(|item|
                                   self.implement_mocked_method(item).into_iter()
                               ).collect();
 
-        let struct_lifetime = syn::Lifetime::new("'a");
-        //let lifetimes = vec![struct_lifetime.clone()];
-        let lifetimes: Vec<syn::Lifetime> = Vec::new();
+        let lifetime_defs = &self.instantiated_trait.info.generics.lifetimes;
+        let lifetimes  = lifetime_defs.into_iter().map(|def| def.lifetime.clone()).collect::<Vec<_>>();
 
         let mock_type_name = self.mock_type_name.clone();
-        let mut trait_ty = self.requested_trait_type.clone();
+        let mut trait_ty = self.instantiated_trait.trait_ty.clone();
 
-        let bindings = TraitImplementer::extract_associated_types(&mut trait_ty);
-
-        let assoc_types = bindings.iter().map(|&syn::TypeBinding{ref ident, ref ty}| quote!(#ident = #ty)).collect::<Vec<_>>();
+        let bindings = TraitImplementer::extract_associated_types(&mut trait_ty, lifetimes);
+        let assoc_types = bindings.into_iter().map(|syn::TypeBinding{ref ident, ref ty}| quote!(#ident = #ty)).collect::<Vec<_>>();
 
         // all generic type parameters need to be bound so only lifetimes must be provided
         //TODO add #lifetimes and bind lifetimes into trait_ty, maybe provide lifetime for mock_type_name
         quote! {
-            impl<#(#lifetimes),*> #trait_ty for #mock_type_name{
+            impl<#(#lifetime_defs),*> #trait_ty for #mock_type_name{
                 #(type #assoc_types;)*
                 #(#methods)*
             }
         }
     }
 
-    fn extract_associated_types(trait_ty: &mut syn::Ty) -> Vec<syn::TypeBinding> {
+    fn extract_associated_types(trait_ty: &mut syn::Ty, lifetimes: Vec<syn::Lifetime>) -> Vec<syn::TypeBinding> {
         if let &mut syn::Ty::Path(_, ref mut path) = trait_ty {
             let ty = path.segments.last_mut().expect("A type path without segment is not valid.");
             if let &mut syn::PathParameters::AngleBracketed(ref mut params) = &mut ty.parameters {
+                params.lifetimes = lifetimes;
                 std::mem::replace(&mut params.bindings, Vec::new())
             } else { Vec::new() }
         } else { Vec::new() }
@@ -82,41 +76,40 @@ impl<'a> TraitImplementer<'a> {
             signature.generics.to_tokens(&mut tokens);
             tokens.append("(");
 
-            // rewrite argument patterns to be unit patterns and instantiate generic argument types
-            let mut arg_idx = 1;
-            let args = signature.decl.inputs.iter().map(|arg| {
-                let arg_name = syn::Ident::from(format!("arg{}", arg_idx));
-                match arg {
-                    &syn::FnArg::Captured(_, ref ty) => {
-                        let inst_ty = self.mapper.instantiate_from_ty(ty);
-                        arg_idx += 1;
-                        quote!(#arg_name: #inst_ty)
-                    },
-                    &syn::FnArg::Ignored(ref ty) => {
-                        let inst_ty = self.mapper.instantiate_from_ty(ty);
-                        arg_idx += 1;
-                        quote!(#arg_name: #inst_ty)
-                    }
-                    _ => quote!(#arg)
-            }}).collect::<Vec<_>>();
-
+            let args = typed_arguments_for_method_sig(signature, &self.instantiated_trait.mapper);
             tokens.append_separated(&args, ",");
+
             tokens.append(")");
             if let syn::FunctionRetTy::Ty(ref ty) = signature.decl.output {
                 tokens.append("->");
-                ty.to_tokens(&mut tokens);
+                self.instantiated_trait.mapper.instantiate_from_ty(ty).to_tokens(&mut tokens);
             }
             signature.generics.where_clause.to_tokens(&mut tokens);
             tokens.append("{");
 
+            let given_behaviours = self.instantiated_trait.given_behaviour_field_in_mock_for(&func_name);
             if let syn::FunctionRetTy::Ty(ref return_ty) = signature.decl.output {
                 let args = self.generate_argument_names(&signature.decl.inputs);
 
-                for block in self.given_blocks.iter() {
-                    tokens.append(self.implement_given_block(block, &args));
-                }
+                tokens.append(quote!{
+                    let curried_args = (#(#args),*);
+                    let mut matched_idx = None;
+                    for (idx, behaviour) in self.#given_behaviours.borrow().iter().enumerate() {
+                        if behaviour.matches(&curried_args) {
+                            matched_idx = Some(idx);
+                            break;
+                        }
+                    }
 
-                tokens.append(quote!(panic!("No matching given! statement found.");));
+                    if let Some(idx) = matched_idx {
+                        let result = self.#given_behaviours.borrow()[idx].return_value(&curried_args);
+                        if self.#given_behaviours.borrow()[idx].is_exhausted() {
+                            self.#given_behaviours.borrow_mut().remove(idx);
+                        }
+                        return result;
+                    }
+                    panic!("No matching given! statement found.");
+                });
             }
 
             tokens.append("}");
@@ -140,69 +133,69 @@ impl<'a> TraitImplementer<'a> {
         arg_names
     }
 
-    fn implement_given_block(&self, block: &GivenBlockInfo, func_args: &[syn::Ident]) -> quote::Tokens {
-        let bound_field = MockStructImplementer::bound_field_for(block.block_id);
-        let activated_field = MockStructImplementer::given_block_activated_field_for(block.block_id);
-
-        let mut behaviours = Vec::new();
-        for stmt in &block.given_statements {
-            let behaviour_field = MockStructImplementer::behaviour_field_for(block.block_id, stmt.stmt_id);
-            let match_expr = match stmt.matcher {
-                BehaviourMatcher::Explicit(ref expr) => {
-                    quote!{ (#expr)(#(&#func_args),*) }
-                },
-                BehaviourMatcher::PerArgument(ref exprs) => {
-                    let mut arg_tokens = quote::Tokens::new();
-                    arg_tokens.append("(");
-                    for idx in 0..func_args.len() {
-                        if idx >= 1 {
-                            arg_tokens.append("&&");
-                        }
-                        let expr = exprs.get(idx).unwrap();
-                        arg_tokens.append(quote!((#expr)));
-                        let arg = func_args.get(idx).unwrap();
-                        arg_tokens.append(quote!((&#arg)));
-                    }
-                    arg_tokens.append(")");
-                    arg_tokens
-                }
-            };
-
-            let return_expr = match &stmt.return_stmt {
-                &Return::FromValue(ref expr) => quote!{ return #expr },
-                &Return::FromCall(ref expr) => quote!{ return (#expr)(#(&#func_args),*) },
-                &Return::FromSpy => panic!("return_from_spy is not implemented yet."),
-                &Return::Panic => quote!{ panic!("Don't forget the towel.") }
-            };
-
-            let behaviour = match stmt.repeat {
-                Repeat::Always => quote! {
-                    if #match_expr.into() {
-                        #return_expr;
-                    }
-                },
-                Repeat::Times(..) => {
-                    let err_msg = "Number of matches for `given` matches has been limited but limit has not been set. This is most likely an error in the library.";
-                    quote! {
-                        let (num_matches, maybe_match_limit) = self.#behaviour_field.get();
-                        let match_limit = maybe_match_limit.expect(#err_msg);
-                        if num_matches < match_limit && #match_expr.into() {
-                            self.#behaviour_field.set((num_matches+1, bound));
-                            #return_expr;
-                        }
-                    }
-                }
-            };
-            behaviours.push(behaviour);
-        }
-
-        let blocked_behaviours = quote! {
-            if self.#activated_field.get() {
-                let bound = &self.#bound_field;
-                #(#behaviours)*
-            }
-        };
-
-        blocked_behaviours
-    }
+    // fn implement_given_block(&self, block: &GivenBlockInfo, func_args: &[syn::Ident]) -> quote::Tokens {
+    //     let bound_field = MockStructImplementer::bound_field_for(block.block_id);
+    //     let activated_field = MockStructImplementer::given_block_activated_field_for(block.block_id);
+    //
+    //     let mut behaviours = Vec::new();
+    //     for stmt in &block.given_statements {
+    //         let behaviour_field = MockStructImplementer::behaviour_field_for(block.block_id, stmt.stmt_id);
+    //         let match_expr = match stmt.matcher {
+    //             BehaviourMatcher::Explicit(ref expr) => {
+    //                 quote!{ (#expr)(#(&#func_args),*) }
+    //             },
+    //             BehaviourMatcher::PerArgument(ref exprs) => {
+    //                 let mut arg_tokens = quote::Tokens::new();
+    //                 arg_tokens.append("(");
+    //                 for idx in 0..func_args.len() {
+    //                     if idx >= 1 {
+    //                         arg_tokens.append("&&");
+    //                     }
+    //                     let expr = exprs.get(idx).unwrap();
+    //                     arg_tokens.append(quote!((#expr)));
+    //                     let arg = func_args.get(idx).unwrap();
+    //                     arg_tokens.append(quote!((&#arg)));
+    //                 }
+    //                 arg_tokens.append(")");
+    //                 arg_tokens
+    //             }
+    //         };
+    //
+    //         let return_expr = match &stmt.return_stmt {
+    //             &Return::FromValue(ref expr) => quote!{ return #expr },
+    //             &Return::FromCall(ref expr) => quote!{ return (#expr)(#(&#func_args),*) },
+    //             &Return::FromSpy => panic!("return_from_spy is not implemented yet."),
+    //             &Return::Panic => quote!{ panic!("Don't forget the towel.") }
+    //         };
+    //
+    //         let behaviour = match stmt.repeat {
+    //             Repeat::Always => quote! {
+    //                 if #match_expr.into() {
+    //                     #return_expr;
+    //                 }
+    //             },
+    //             Repeat::Times(..) => {
+    //                 let err_msg = "Number of matches for `given` matches has been limited but limit has not been set. This is most likely an error in the library.";
+    //                 quote! {
+    //                     let (num_matches, maybe_match_limit) = self.#behaviour_field.get();
+    //                     let match_limit = maybe_match_limit.expect(#err_msg);
+    //                     if num_matches < match_limit && #match_expr.into() {
+    //                         self.#behaviour_field.set((num_matches+1, bound));
+    //                         #return_expr;
+    //                     }
+    //                 }
+    //             }
+    //         };
+    //         behaviours.push(behaviour);
+    //     }
+    //
+    //     let blocked_behaviours = quote! {
+    //         if self.#activated_field.get() {
+    //             let bound = &self.#bound_field;
+    //             #(#behaviours)*
+    //         }
+    //     };
+    //
+    //     blocked_behaviours
+    // }
 }

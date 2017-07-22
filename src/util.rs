@@ -32,21 +32,8 @@ fn convert_token_to_syntax_stmts<'a>(cx: &'a mut ExtCtxt, tokens: Vec<quote::Tok
     MacEager::stmts(SmallVector::many(stmts))
 }
 
+
 #[macro_export]
 macro_rules! acquire {
     ( $global_var: ident ) => { $global_var.lock().unwrap() }
-}
-
-#[macro_export]
-macro_rules! get_singleton {
-    ( $var_name: ident of $type_name: ident ) => {
-        let $var_name = $type_name.lock().unwrap();
-    }
-}
-
-#[macro_export]
-macro_rules! get_singleton_mut {
-    ( $var_name: ident of $type_name: ident ) => {
-        let mut $var_name = $type_name.lock().unwrap();
-    }
 }
