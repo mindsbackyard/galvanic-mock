@@ -17,7 +17,6 @@ galvanic-assert = "0.8"
 galvanic-mock-lib = { path = "../galvanic-mock-lib" }
 
 [lib]
-name = "galvanic_mock"
-plugin = true
+proc-macro = true
 
 [badges]

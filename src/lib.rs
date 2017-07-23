@@ -1,4 +1,4 @@
-#![feature(plugin_registrar, rustc_private, quote)]
+#![feature(proc_macro)]
 #![allow(warnings)]
 #![recursion_limit = "128"]
 
@@ -9,48 +9,40 @@ mod given;
 mod generate;
 mod data;
 
-#[cfg(test)]#[macro_use]
-extern crate galvanic_assert;
-
-extern crate syntax;
-extern crate rustc;
-extern crate rustc_plugin;
-extern crate rustc_errors;
+extern crate proc_macro;
 #[macro_use] extern crate lazy_static;
 
 extern crate syn;
 #[macro_use] extern crate synom;
 #[macro_use] extern crate quote;
 
+#[cfg(test)]#[macro_use]
+extern crate galvanic_assert;
 
-use rustc_plugin::Registry;
-
-use syntax::codemap::{BytePos, Pos};
-use syntax::ext::base::{SyntaxExtension, ExtCtxt, MacResult, DummyResult, MacEager};
-use syntax::parse::{token, parser};
-use syntax::ast;
-use syntax::tokenstream::TokenTree;
-use syntax::ptr::P;
-use syntax::ext::quote::rt::Span;
-use syntax::util::small_vector::SmallVector;
-use syntax::print::pprust;
-use syntax::visit;
-
+use proc_macro::TokenStream;
 use syn::parse::IResult;
 
-use mock_definition::handle_mockable;
 use new_mock::handle_new_mock;
 use given::handle_given;
 use generate::handle_generate_mocks;
 use data::*;
 
 
-#[plugin_registrar]
-pub fn plugin_registrar(reg: &mut Registry) {
-    reg.register_macro("mockable", handle_mockable);
-    reg.register_macro("use_mocks", handle_use_mocks);
-}
+#[proc_macro_attribute]
+pub fn mockable(args: TokenStream, input: TokenStream) -> TokenStream {
+    let s = input.to_string();
+    let trait_item = syn::parse_item(&s).expect("Expecting a trait definition.");
 
+    match trait_item.node {
+        syn::ItemKind::Trait(safety, generics, bounds, items) => {
+            let mut mockable_traits = acquire!(MOCKABLE_TRAITS);
+            mockable_traits.insert(trait_item.ident.clone(), TraitInfo::new(safety, generics, bounds, items));
+        },
+        _ => panic!("Expecting a trait definition")
+    }
+
+    String::new().parse().unwrap()
+}
 
 
 fn handle_expect_invocations(source: &str, absolute_position: usize) -> (String, String) {
@@ -60,7 +52,6 @@ fn handle_expect_invocations(source: &str, absolute_position: usize) -> (String,
 fn handle_then_verify_interactions(source: &str, absolute_position: usize) -> (String, String) {
     panic!("Not implemented yet");
 }
-
 
 fn has_balanced_quotes(source: &str)  -> bool {
     let mut count = 0;
@@ -82,7 +73,7 @@ fn has_balanced_quotes(source: &str)  -> bool {
 }
 
 /// Stores position of a macro invocation with the variant naming the macro.
-pub enum MacroInvocationPos {
+enum MacroInvocationPos {
     NewMock(usize),
     Given(usize),
     ExpectInteractions(usize),
@@ -129,18 +120,17 @@ where F: Fn(&str, usize) -> (String, String) {
     (left_of_mac.to_string(), absolute_pos_of_mac, generated_source)
 }
 
-fn handle_use_mocks<'a>(cx: &'a mut ExtCtxt, sp: Span, token_tree: &[TokenTree]) -> Box<MacResult + 'a> {
+#[proc_macro_attribute]
+pub fn use_mocks(args: TokenStream, input: TokenStream) -> TokenStream {
     use MacroInvocationPos::*;
 
     // to parse the macros related to mock ussage the function is converted to string form
-    let func_def: String = syntax::print::pprust::tts_to_string(token_tree);
     let mut reassembled = String::new();
-    let mut remainder = func_def;
+    let mut remainder = input.to_string();
     let mut left: String;
 
     // parse one macro a time then search for the next macro in the remaining string
-    let BytePos(mut absolute_pos) = sp.lo;
-    let absolute_pos = absolute_pos as usize;
+    let absolute_pos = 0;
     while !remainder.is_empty() {
 
         match find_next_mock_macro_invocation(&remainder) {
@@ -164,8 +154,7 @@ fn handle_use_mocks<'a>(cx: &'a mut ExtCtxt, sp: Span, token_tree: &[TokenTree])
 
     println!("{}", reassembled);
     // once all macro invocations have been removed from the string (and replaced with the actual mock code) it can be parsed back into a function item
-    let maybe_fn = syntax::parse::parse_item_from_source_str("".to_owned(), reassembled, cx.parse_sess()).unwrap();
-    let fn_: P<ast::Item> = maybe_fn.unwrap();
+    let fn_ = syn::parse_item(&reassembled).unwrap();
 
     let token_pairs = handle_generate_mocks();
     for &(ref tok, ref toks) in token_pairs.iter() {
@@ -174,24 +163,16 @@ fn handle_use_mocks<'a>(cx: &'a mut ExtCtxt, sp: Span, token_tree: &[TokenTree])
             println!("{}", t);
         }
     }
-    let mut items = token_pairs.iter()
-                               .map(|&(ref t, _)| {
-                                   syntax::parse::parse_item_from_source_str(
-                                       "".to_owned(), t.to_string(), cx.parse_sess()
-                                   ).unwrap().unwrap()
-                               }).collect::<Vec<_>>();
-    items.push(fn_);
+    let (items, impls): (Vec<ItemTokens>, Vec<Vec<ImplTokens>>) = token_pairs.into_iter().unzip();
+    let impls = impls.into_iter().flat_map(|impls| impls.into_iter()).collect::<Vec<_>>();
 
-    let mut impls = token_pairs.iter()
-                               .flat_map(|&(_, ref t)| t.into_iter())
-                               .map(|t| {
-                                   syntax::parse::parse_item_from_source_str(
-                                       "".to_owned(), t.to_string(), cx.parse_sess()
-                                   ).unwrap().unwrap()
-                               }).collect::<Vec<_>>();
-    items.extend(impls);
+    (quote! {
+        #fn_
 
-    MacEager::items(SmallVector::many(items))
+        #(#items)*
+
+        #(#impls)*
+    }).to_string().parse().unwrap()
 }
 
 
