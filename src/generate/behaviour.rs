@@ -28,11 +28,9 @@ pub fn implement_behaviour_traits(instantiated_trait: &InstantiatedTrait) -> Vec
 
                     fn return_value(&self, curried_args: &(#(#arg_types),*)) -> #return_type;
 
-                    fn is_exhausted(&self) -> bool;
+                    fn is_saturated(&self) -> bool;
 
-                    fn associated_trait(&self) -> &str { #trait_as_str }
-
-                    fn associated_method(&self) -> &str { #method_as_str }
+                    fn describe(&self) -> String;
                 }
             });
         }
@@ -54,7 +52,7 @@ pub fn implement_given_behaviour(statement: &GivenStatement, instantiated_trait:
     };
 
     let constructor = match statement.repeat {
-        Repeat::Always => quote! {
+        GivenRepeat::Always => quote! {
             pub fn with(bound: std::rc::Rc<#binding_type>) -> Self {
                 Self {
                     num_matches: std::cell::Cell::new(0),
@@ -63,7 +61,7 @@ pub fn implement_given_behaviour(statement: &GivenStatement, instantiated_trait:
                 }
             }
         },
-        Repeat::Times(..) => quote! {
+        GivenRepeat::Times(..) => quote! {
             pub fn with_times(times: usize, bound: std::rc::Rc<#binding_type>) -> Self {
                 Self {
                     num_matches: std::cell::Cell::new(0),
@@ -96,16 +94,17 @@ pub fn implement_given_behaviour(statement: &GivenStatement, instantiated_trait:
 
     let behaviour_for_trait_method = instantiated_trait.behaviour_type_for(&statement.method);
     let arg_types = &arg_types;
-    let return_expr = match &statement.return_stmt {
-        &Return::FromValue(ref expr) => quote!{ return #expr },
-        &Return::FromCall(ref expr) => quote!{ return (#expr)(curried_args) },
+    let (return_expr, return_expr_repr) = match &statement.return_stmt {
+        &Return::FromValue(ref expr) => (quote!{ return #expr }, quote!{ then_return #expr }),
+        &Return::FromCall(ref expr) => (quote!{ return (#expr)(curried_args) }, quote!{ then_return_from #expr }),
         &Return::FromSpy => panic!("return_from_spy is not implemented yet."),
-        &Return::Panic => quote!{ panic!("Panic by behaviour. Don't forget the towel.") }
+        &Return::Panic => (quote!{ panic!("Panic by behaviour. Don't forget the towel.") }, quote!{ then_panic })
     };
 
-    let match_expr = match statement.matcher {
+    let (match_expr, match_expr_repr) = match statement.matcher {
         BehaviourMatcher::Explicit(ref expr) => {
-            quote!{ (#expr)(curried_args) }
+            (quote!{ (#expr)(curried_args) },
+             quote!{ #expr })
         },
         BehaviourMatcher::PerArgument(ref exprs) => {
             let mut arg_tokens = quote::Tokens::new();
@@ -119,9 +118,13 @@ pub fn implement_given_behaviour(statement: &GivenStatement, instantiated_trait:
                 arg_tokens.append(format!("(&curried_args.{})", idx));
             }
             arg_tokens.append(")");
-            arg_tokens
+            (arg_tokens, quote!( (#(#exprs),*) ))
         }
     };
+
+    let mock_var = &statement.mock_var;
+    let mocked_trait_ty = &statement.ufc_trait;
+    let method_ident = &statement.method;
 
     let behaviour_trait_impl = quote! {
         impl #behaviour_for_trait_method for #behaviour {
@@ -141,11 +144,22 @@ pub fn implement_given_behaviour(statement: &GivenStatement, instantiated_trait:
                 #return_expr
             }
 
-            fn is_exhausted(&self) -> bool {
+            fn is_saturated(&self) -> bool {
                 match self.expected_matches {
                     Some(limit) => self.num_matches.get() >= limit,
                     None => false
                 }
+            }
+
+            fn describe(&self) -> String {
+                format!("{} {} matched {} times",
+                        stringify!(<#mock_var as #mocked_trait_ty>::#method_ident #match_expr_repr #return_expr_repr),
+                        match self.expected_matches {
+                            None => "always".to_string(),
+                            Some(times) => format!("times({})", times)
+                        },
+                        self.num_matches.get()
+                )
             }
         }
     };

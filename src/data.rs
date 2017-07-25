@@ -61,6 +61,7 @@ lazy_static! {
     };
 }
 
+
 pub struct MockedTraitUnifier {
     next_id: usize,
     trait_to_unique_id: HashMap<syn::Ty, usize>
@@ -94,6 +95,25 @@ lazy_static! {
 }
 
 
+pub struct Binding {
+    pub block_id: usize,
+    pub fields: Vec<BindingField>
+}
+
+pub struct BindingField {
+    pub name: VarName,
+    pub ty: syn::Ty,
+    pub initializer: syn::Expr
+}
+
+pub type Bindings = Vec<Binding>;
+lazy_static! {
+    pub static ref BINDINGS: Mutex<Bindings> = {
+        Mutex::new(Vec::new())
+    };
+}
+
+
 #[derive(Debug,Clone)]
 pub enum BehaviourMatcher {
     Explicit(syn::Expr),
@@ -109,7 +129,7 @@ pub enum Return {
 }
 
 #[derive(Debug,PartialEq,Clone)]
-pub enum Repeat {
+pub enum GivenRepeat {
     Times(syn::Expr),
     Always
 }
@@ -118,11 +138,12 @@ pub enum Repeat {
 pub struct GivenStatement {
     pub block_id: usize,
     pub stmt_id: usize,
+    pub mock_var: syn::Ident,
     pub ufc_trait: syn::Ty,
     pub method: MethodName,
     pub matcher: BehaviourMatcher,
     pub return_stmt: Return,
-    pub repeat: Repeat
+    pub repeat: GivenRepeat,
 }
 
 pub type GivenStatements = Vec<GivenStatement>;
@@ -132,20 +153,29 @@ lazy_static! {
     };
 }
 
-pub struct Binding {
+
+#[derive(Debug,PartialEq,Clone)]
+pub enum ExpectRepeat {
+    Times(syn::Expr),
+    AtLeast(syn::Expr),
+    AtMost(syn::Expr),
+    Between(syn::Expr, syn::Expr),
+}
+
+#[derive(Debug,Clone)]
+pub struct ExpectStatement {
     pub block_id: usize,
-    pub fields: Vec<BindingField>
+    pub stmt_id: usize,
+    pub mock_var: syn::Ident,
+    pub ufc_trait: syn::Ty,
+    pub method: MethodName,
+    pub matcher: BehaviourMatcher,
+    pub repeat: ExpectRepeat
 }
 
-pub struct BindingField {
-    pub name: VarName,
-    pub ty: syn::Ty,
-    pub initializer: syn::Expr
-}
-
-pub type Bindings = Vec<Binding>;
+pub type ExpectStatements = Vec<ExpectStatement>;
 lazy_static! {
-    pub static ref BINDINGS: Mutex<Bindings> = {
+    pub static ref EXPECT_STATEMENTS: Mutex<ExpectStatements> = {
         Mutex::new(Vec::new())
     };
 }

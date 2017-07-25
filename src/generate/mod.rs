@@ -144,6 +144,14 @@ impl InstantiatedTrait {
     pub fn behaviour_type_for(&self, method_ident: &syn::Ident) -> syn::Ident {
         syn::Ident::from(format!("BehaviourTrait{}_{}", self.unique_id, method_ident))
     }
+
+    pub fn expect_behaviour_field_in_mock_for(&self, method_ident: &syn::Ident) -> syn::Ident {
+        syn::Ident::from(format!("expect_behaviours_for_trait{}_{}", self.unique_id, method_ident))
+    }
+
+    pub fn expect_behaviour_add_method_to_mock_for(&self, method_ident: &syn::Ident) -> syn::Ident {
+        syn::Ident::from(format!("add_expect_behaviour_for_trait{}_{}", self.unique_id, method_ident))
+    }
 }
 
 pub fn typed_arguments_for_method_sig(signature: &syn::MethodSig, mapper: &TypeParamMapper) -> Vec<quote::Tokens> {

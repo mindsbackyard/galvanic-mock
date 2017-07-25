@@ -29,25 +29,32 @@ impl<'a> MockStructImplementer<'a> {
     pub fn implement(&self) -> (ItemTokens, ImplTokens) {
         let mock_type_name = &self.mock_type_name;
 
-        let mut behaviour_names = Vec::new();
+        let mut given_behaviour_names = Vec::new();
+        let mut add_given_behaviours = Vec::new();
+        let mut expect_behaviour_names = Vec::new();
+        let mut add_expect_behaviours = Vec::new();
         let mut behaviour_types = Vec::new();
-        let mut add_behaviours = Vec::new();
         for inst_trait in self.instantiated_traits.iter() {
             for item in &inst_trait.info.items {
                 if let syn::TraitItemKind::Method(_, _) = item.node {
-                    behaviour_names.push(inst_trait.given_behaviour_field_in_mock_for(&item.ident));
+                    given_behaviour_names.push(inst_trait.given_behaviour_field_in_mock_for(&item.ident));
+                    add_given_behaviours.push(inst_trait.given_behaviour_add_method_to_mock_for(&item.ident));
+                    expect_behaviour_names.push(inst_trait.expect_behaviour_field_in_mock_for(&item.ident));
+                    add_expect_behaviours.push(inst_trait.expect_behaviour_add_method_to_mock_for(&item.ident));
                     behaviour_types.push(inst_trait.behaviour_type_for(&item.ident));
-                    add_behaviours.push(inst_trait.given_behaviour_add_method_to_mock_for(&item.ident));
                 }
             }
         }
 
-        let behaviour_names = &behaviour_names;
+        let given_behaviour_names = &given_behaviour_names;
+        let expect_behaviour_names = &expect_behaviour_names;
         let behaviour_types = &behaviour_types;
 
         let mock_struct = quote! {
             struct #mock_type_name {
-                #(#behaviour_names: std::cell::RefCell<Vec<Box<#behaviour_types>>>,)*
+                #(#given_behaviour_names: std::cell::RefCell<Vec<Box<#behaviour_types>>>,)*
+                #(#expect_behaviour_names: std::cell::RefCell<Vec<Box<#behaviour_types>>>,)*
+                verify_on_drop: bool,
             }
         };
 
@@ -55,13 +62,55 @@ impl<'a> MockStructImplementer<'a> {
             impl #mock_type_name {
                 pub fn new() -> Self {
                     #mock_type_name {
-                        #(#behaviour_names: std::cell::RefCell::new(Vec::new()),)*
+                        #(#given_behaviour_names: std::cell::RefCell::new(Vec::new()),)*
+                        #(#expect_behaviour_names: std::cell::RefCell::new(Vec::new()),)*
+                        verify_on_drop: true,
                     }
                 }
 
-                #(pub fn #add_behaviours(&self, behaviour: Box<#behaviour_types>) {
-                    self.#behaviour_names.borrow_mut().push(behaviour);
+                pub fn should_verify_on_drop(&mut self, flag: bool) { self.verify_on_drop = flag; }
+
+                #(#[allow(dead_code)] pub fn #add_given_behaviours(&self, behaviour: Box<#behaviour_types>) {
+                    self.#given_behaviour_names.borrow_mut().push(behaviour);
                 })*
+
+                #[allow(dead_code)]
+                pub fn reset_given_behaviours(&mut self) {
+                    #(self.#given_behaviour_names.borrow_mut().clear();)*
+                }
+
+                #(#[allow(dead_code)] pub fn #add_expect_behaviours(&self, behaviour: Box<#behaviour_types>) {
+                    self.#expect_behaviour_names.borrow_mut().push(behaviour);
+                })*
+
+                #[allow(dead_code)]
+                pub fn reset_expected_behaviours(&mut self) {
+                    #(self.#expect_behaviour_names.borrow_mut().clear();)*
+                }
+
+                #[allow(dead_code)]
+                pub fn are_expected_behaviours_satisfied(&self) -> bool {
+                    let mut unsatisfied_messages = Vec::new();
+                    #(for behaviour in self.#expect_behaviour_names.borrow().iter() {
+                        if !behaviour.is_saturated() {
+                            unsatisfied_messages.push(format!("Behaviour unsatisfied: {}", behaviour.describe()));
+                        }
+                    })*
+
+                    if !unsatisfied_messages.is_empty() {
+                        for message in unsatisfied_messages {
+                            println!("{}", message);
+                        }
+                        false
+                    } else { true }
+                }
+
+                #[allow(dead_code)]
+                pub fn verify(&self) {
+                    if !self.are_expected_behaviours_satisfied() && !std::thread::panicking() {
+                        panic!("There are unsatisfied expected behaviours for mocked traits.");
+                    }
+                }
             }
         };
 

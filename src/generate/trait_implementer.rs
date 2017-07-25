@@ -103,7 +103,7 @@ impl<'a> TraitImplementer<'a> {
 
                     if let Some(idx) = matched_idx {
                         let result = self.#given_behaviours.borrow()[idx].return_value(&curried_args);
-                        if self.#given_behaviours.borrow()[idx].is_exhausted() {
+                        if self.#given_behaviours.borrow()[idx].is_saturated() {
                             self.#given_behaviours.borrow_mut().remove(idx);
                         }
                         return result;

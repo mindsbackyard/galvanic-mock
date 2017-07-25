@@ -18,7 +18,6 @@ named!(parse_new_mock -> Vec<syn::Ty>,
 );
 
 pub fn handle_new_mock(source: &str, absolute_position: usize) -> (String, String) {
-    //println!("Handling new_mock!: {}", source);
     if let IResult::Done(remainder, req_traits) = parse_new_mock(source) {
         let mut requested_traits = acquire!(REQUESTED_TRAITS);
         let mut mocked_trait_unifier = acquire!(MOCKED_TRAIT_UNIFIER);
