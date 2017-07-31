@@ -58,20 +58,25 @@ pub fn handle_expect_interactions(source: &str, absolute_position: usize) -> (St
         let mocked_trait_unifier = acquire!(MOCKED_TRAIT_UNIFIER);
 
         let mut add_statements = Vec::new();
-        for (idx, stmt) in expect_definitions.into_iter().enumerate() {
+        for (idx, mut stmt) in expect_definitions.into_iter().enumerate() {
+            stmt.block_id = absolute_position;
+            stmt.stmt_id = idx;
+
             {
                 let mock_var = &stmt.mock_var;
                 let unique_id = mocked_trait_unifier.get_unique_id_for(&stmt.ufc_trait).expect("");
                 let add_method = syn::Ident::from(format!("add_expect_behaviour_for_trait{}_{}", unique_id, stmt.method));
-                let behaviour = syn::Ident::from(format!("ExpectBehaviour{}", idx));
+                let stmt_repr = format!("{}", stmt);
                 add_statements.push(match &stmt.repeat {
-                    &ExpectRepeat::Times(ref expr) => quote!( #mock_var.#add_method(Box::new(#behaviour::with_times(#expr, binding.clone()))); ),
-                    &ExpectRepeat::AtLeast(ref expr) => quote!( #mock_var.#add_method(Box::new(#behaviour::with_at_least(#expr, binding.clone()))); ),
-                    &ExpectRepeat::AtMost(ref expr) => quote!( #mock_var.#add_method(Box::new(#behaviour::with_at_most(#expr, binding.clone()))); ),
-                    &ExpectRepeat::Between(ref expr_lower, ref expr_upper) => quote!( #mock_var.#add_method(Box::new(#behaviour::with_between(#expr_lower, #expr_upper, binding.clone()))); ),
+                    &ExpectRepeat::Times(ref expr) => quote!( #mock_var.#add_method(ExpectBehaviour::with_times(#expr, #idx, binding.clone(), #stmt_repr)); ),
+                    &ExpectRepeat::AtLeast(ref expr) => quote!( #mock_var.#add_method(ExpectBehaviour::with_at_least(#expr, #idx, binding.clone(), #stmt_repr)); ),
+                    &ExpectRepeat::AtMost(ref expr) => quote!( #mock_var.#add_method(ExpectBehaviour::with_at_most(#expr, #idx, binding.clone(), #stmt_repr)); ),
+                    &ExpectRepeat::Between(ref expr_lower, ref expr_upper) => quote!( #mock_var.#add_method(ExpectBehaviour::with_between(#expr_lower, #expr_upper, #idx, binding.clone(), #stmt_repr)); ),
                 });
             }
-            statements.push(stmt);
+            statements.entry(stmt.ufc_trait.clone())
+                      .or_insert_with(|| Vec::new())
+                      .push(stmt);
         }
 
         let binding = Binding {
@@ -80,7 +85,6 @@ pub fn handle_expect_interactions(source: &str, absolute_position: usize) -> (St
         };
         let binding_initialization = implement_initialize_binding(&binding);
         acquire!(BINDINGS).push(binding);
-
 
         let given_block = quote! {
             let binding = std::rc::Rc::new(#binding_initialization);
