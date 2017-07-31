@@ -28,6 +28,10 @@ use expect::handle_expect_interactions;
 use generate::handle_generate_mocks;
 use data::*;
 
+use std::env;
+use std::fs::File;
+use std::io::Write;
+use std::path::Path;
 
 #[proc_macro_attribute]
 pub fn mockable(args: TokenStream, input: TokenStream) -> TokenStream {
@@ -56,7 +60,8 @@ pub fn use_mocks(args: TokenStream, input: TokenStream) -> TokenStream {
 
     // to parse the macros related to mock ussage the function is converted to string form
     let mut reassembled = String::new();
-    let mut remainder = input.to_string();
+    let parsed = syn::parse_item(&input.to_string()).unwrap();
+    let mut remainder = quote!(#parsed).to_string();
     let mut left: String;
 
     // parse one macro a time then search for the next macro in the remaining string
@@ -86,26 +91,31 @@ pub fn use_mocks(args: TokenStream, input: TokenStream) -> TokenStream {
     let fn_ident = &fn_.ident;
     let mod_fn = syn::Ident::from(format!("mod_{}", fn_ident));
 
-    let token_pairs = handle_generate_mocks();
+    let mocks = handle_generate_mocks();
 
-    let (items, impls): (Vec<ItemTokens>, Vec<Vec<ImplTokens>>) = token_pairs.into_iter().unzip();
-    let impls = impls.into_iter().flat_map(|impls| impls.into_iter()).collect::<Vec<_>>();
-
-    let result = (quote! {
+    let generated_mock = (quote! {
         pub use #mod_fn::#fn_ident;
         mod #mod_fn {
             use super::*;
 
             #fn_
 
-            #(#items)*
-
-            #(#impls)*
+            #(#mocks)*
         }
     }).to_string();
 
-    println!("{}", result);
-    result.parse().unwrap()
+    if let Some((_, path)) = env::vars().find(|&(ref key, _)| key == "GA_WRITE_MOCK") {
+        if path.is_empty() {
+            println!("{}", generated_mock);
+        } else {
+            let success = File::create(Path::new(&path).join(&(fn_ident.to_string())))
+                               .and_then(|mut f| f.write_all(generated_mock.as_bytes()));
+            if let Err(err) = success {
+                eprintln!("Unable to write generated mock: {}", err);
+            }
+        }
+    }
+    generated_mock.parse().unwrap()
 }
 
 

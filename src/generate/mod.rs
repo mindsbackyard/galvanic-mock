@@ -18,9 +18,10 @@ use data::*;
 use util::type_name_of;
 
 /// Generates all mock structs and implementations.
-pub fn handle_generate_mocks() -> Vec<(ItemTokens, Vec<ImplTokens>)> {
+pub fn handle_generate_mocks() -> Vec<quote::Tokens> {
     let mut requested_traits = acquire!(REQUESTED_TRAITS);
     let given_statements = acquire!(GIVEN_STATEMENTS);
+    let expect_statements = acquire!(EXPECT_STATEMENTS);
     let mockable_traits = acquire!(MOCKABLE_TRAITS);
     let mocked_trait_unifier = acquire!(MOCKED_TRAIT_UNIFIER);
     let bindings = acquire!(BINDINGS);
@@ -28,24 +29,13 @@ pub fn handle_generate_mocks() -> Vec<(ItemTokens, Vec<ImplTokens>)> {
     let all_requested_traits = mocked_trait_unifier.get_traits();
     let instantiated_traits = collect_instantiated_traits(&all_requested_traits, &mockable_traits, &mocked_trait_unifier);
 
-    let mut tokens: Vec<(ItemTokens, Vec<ImplTokens>)> = implement_bindings(&bindings).into_iter()
-                                                                                      .map(|item| (item, Vec::new()))
-                                                                                      .collect::<Vec<_>>();
+    let mut tokens = implement_bindings(&bindings);
+    tokens.extend(implement_given_behaviour());
+    tokens.extend(implement_expect_behaviour());
 
     for (mock_type_name, requested_traits) in requested_traits.iter() {
         let inst_traits = requested_traits.iter().map(|trait_ty| instantiated_traits.get(trait_ty).expect("")).collect::<Vec<_>>();
-        tokens.push(handle_generate_mock(mock_type_name, &inst_traits));
-    }
-
-    for inst_trait in instantiated_traits.values() {
-        for behaviour_trait in implement_behaviour_traits(inst_trait) {
-            tokens.push((behaviour_trait, Vec::new()));
-        }
-    }
-
-    for statement in given_statements.iter() {
-        let instantiated_trait = instantiated_traits.get(&statement.ufc_trait).expect("");
-        tokens.push(implement_given_behaviour(statement, instantiated_trait));
+        tokens.extend(handle_generate_mock(mock_type_name, &inst_traits, &given_statements, &expect_statements));
     }
 
     requested_traits.clear();
@@ -106,16 +96,30 @@ fn collect_instantiated_traits(requested_traits: &[syn::Ty], mockable_traits: &M
 /// # Paramters
 /// * `mock_type_name` - The name of the generated mock type
 /// * `trait_tys` - The (generic) trait types which are requested for the mock
-fn handle_generate_mock(mock_type_name: &syn::Ident, requested_traits: &[&InstantiatedTrait]) -> (ItemTokens, Vec<ImplTokens>) {
+fn handle_generate_mock(mock_type_name: &syn::Ident,
+                        requested_traits: &[&InstantiatedTrait],
+                        given_statements: &GivenStatements,
+                        expect_statements: &ExpectStatements
+                       ) -> Vec<quote::Tokens> {
     let mock_implementer = MockStructImplementer::for_(mock_type_name, requested_traits);
-    let (mock_item, mock_impl) = mock_implementer.implement();
+    let mut mock = mock_implementer.implement();
 
-    let mut impls = requested_traits.into_iter().map(|inst_trait| TraitImplementer::for_(mock_type_name, inst_trait).implement()).collect::<Vec<_>>();
-    impls.push(mock_impl);
+    let empty_given = Vec::new();
+    let empty_expect = Vec::new();
+    for inst_trait in requested_traits {
+        let given_statements_for_trait = given_statements.get(&inst_trait.trait_ty)
+                                                         .unwrap_or(&empty_given);
+        let expect_statements_for_trait = expect_statements.get(&inst_trait.trait_ty)
+                                                           .unwrap_or(&empty_expect);
+        mock.push(TraitImplementer::for_(mock_type_name,
+                                         inst_trait,
+                                         given_statements_for_trait,
+                                         expect_statements_for_trait
+                                    ).implement());
+    }
 
-    (mock_item, impls)
+    mock
 }
-
 
 fn extract_parameterized_types_from_trait_use(trait_ty: &syn::Path) -> Vec<syn::Ty> {
     match trait_ty.segments[0].parameters {
@@ -123,6 +127,26 @@ fn extract_parameterized_types_from_trait_use(trait_ty: &syn::Path) -> Vec<syn::
         _ => panic!("Type parameter extraction only works for angle-bracketed types.")
     }
 }
+
+pub fn typed_arguments_for_method_sig(signature: &syn::MethodSig, mapper: &TypeParamMapper) -> Vec<quote::Tokens> {
+    let mut arg_idx = 1;
+    signature.decl.inputs.iter().map(|arg| {
+        let arg_name = syn::Ident::from(format!("arg{}", arg_idx));
+        match arg {
+            &syn::FnArg::Captured(_, ref ty) => {
+                let inst_ty = mapper.instantiate_from_ty(ty);
+                arg_idx += 1;
+                quote!(#arg_name: #inst_ty)
+            },
+            &syn::FnArg::Ignored(ref ty) => {
+                let inst_ty = mapper.instantiate_from_ty(ty);
+                arg_idx += 1;
+                quote!(#arg_name: #inst_ty)
+            }
+            _ => quote!(#arg)
+    }}).collect::<Vec<_>>()
+}
+
 
 #[derive(Clone,Debug)]
 pub struct InstantiatedTrait {
@@ -151,44 +175,5 @@ impl InstantiatedTrait {
 
     pub fn expect_behaviour_add_method_to_mock_for(&self, method_ident: &syn::Ident) -> syn::Ident {
         syn::Ident::from(format!("add_expect_behaviour_for_trait{}_{}", self.unique_id, method_ident))
-    }
-}
-
-pub fn typed_arguments_for_method_sig(signature: &syn::MethodSig, mapper: &TypeParamMapper) -> Vec<quote::Tokens> {
-    let mut arg_idx = 1;
-    signature.decl.inputs.iter().map(|arg| {
-        let arg_name = syn::Ident::from(format!("arg{}", arg_idx));
-        match arg {
-            &syn::FnArg::Captured(_, ref ty) => {
-                let inst_ty = mapper.instantiate_from_ty(ty);
-                arg_idx += 1;
-                quote!(#arg_name: #inst_ty)
-            },
-            &syn::FnArg::Ignored(ref ty) => {
-                let inst_ty = mapper.instantiate_from_ty(ty);
-                arg_idx += 1;
-                quote!(#arg_name: #inst_ty)
-            }
-            _ => quote!(#arg)
-    }}).collect::<Vec<_>>()
-}
-
-pub fn argument_types_for_method_sig(signature: &syn::MethodSig, mapper: &TypeParamMapper) -> Vec<syn::Ty> {
-    let mut arg_idx = 1;
-    signature.decl.inputs.iter().filter_map(|arg| match arg {
-        &syn::FnArg::Captured(_, ref ty) => Some(mapper.instantiate_from_ty(ty)),
-        &syn::FnArg::Ignored(ref ty) => Some(mapper.instantiate_from_ty(ty)),
-        _ => None
-    }).collect::<Vec<_>>()
-}
-
-pub fn unlifetime(type_: syn::Ty) -> syn::Ty {
-    match type_ {
-        syn::Ty::Rptr(_, boxed_mut_ty) => {
-            let ty = boxed_mut_ty.ty.clone();
-            let mutability = boxed_mut_ty.mutability.clone();
-            syn::Ty::Rptr(None, Box::new(syn::MutTy { ty: unlifetime(ty), mutability }))
-        },
-        _ => type_
     }
 }
