@@ -26,7 +26,7 @@ impl<'a> MockStructImplementer<'a> {
     }
 
     /// Generate the struct definition of the mock and the methods for creating/interacting with the mock.
-    pub fn implement(&self) -> (ItemTokens, ImplTokens) {
+    pub fn implement(&self) -> Vec<quote::Tokens> {
         let mock_type_name = &self.mock_type_name;
 
         let mut given_behaviour_names = Vec::new();
@@ -52,8 +52,8 @@ impl<'a> MockStructImplementer<'a> {
 
         let mock_struct = quote! {
             struct #mock_type_name {
-                #(#given_behaviour_names: std::cell::RefCell<Vec<Box<#behaviour_types>>>,)*
-                #(#expect_behaviour_names: std::cell::RefCell<Vec<Box<#behaviour_types>>>,)*
+                #(#given_behaviour_names: std::cell::RefCell<Vec<GivenBehaviour>>,)*
+                #(#expect_behaviour_names: std::cell::RefCell<Vec<ExpectBehaviour>>,)*
                 verify_on_drop: bool,
             }
         };
@@ -70,7 +70,7 @@ impl<'a> MockStructImplementer<'a> {
 
                 pub fn should_verify_on_drop(&mut self, flag: bool) { self.verify_on_drop = flag; }
 
-                #(#[allow(dead_code)] pub fn #add_given_behaviours(&self, behaviour: Box<#behaviour_types>) {
+                #(#[allow(dead_code)] pub fn #add_given_behaviours(&self, behaviour: GivenBehaviour) {
                     self.#given_behaviour_names.borrow_mut().push(behaviour);
                 })*
 
@@ -79,7 +79,7 @@ impl<'a> MockStructImplementer<'a> {
                     #(self.#given_behaviour_names.borrow_mut().clear();)*
                 }
 
-                #(#[allow(dead_code)] pub fn #add_expect_behaviours(&self, behaviour: Box<#behaviour_types>) {
+                #(#[allow(dead_code)] pub fn #add_expect_behaviours(&self, behaviour: ExpectBehaviour) {
                     self.#expect_behaviour_names.borrow_mut().push(behaviour);
                 })*
 
@@ -114,6 +114,6 @@ impl<'a> MockStructImplementer<'a> {
             }
         };
 
-        (mock_struct, mock_impl)
+        vec![mock_struct, mock_impl]
     }
 }
