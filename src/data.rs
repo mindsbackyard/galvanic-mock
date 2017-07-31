@@ -33,15 +33,6 @@ impl TraitInfo {
             items: items
         }
     }
-
-    pub fn get_method_by_name(&self, name: &str) -> Option<&syn::TraitItem> {
-        for item in &self.items {
-            if let syn::TraitItemKind::Method(_, _) = item.node {
-                if item.ident == name { return Some(item); }
-            }
-        }
-        None
-    }
 }
 
 pub type MockableTraits = HashMap<TypeName, TraitInfo>;
@@ -146,10 +137,38 @@ pub struct GivenStatement {
     pub repeat: GivenRepeat,
 }
 
-pub type GivenStatements = Vec<GivenStatement>;
+impl ::std::fmt::Display for GivenStatement {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> Result<(), ::std::fmt::Error> {
+        let match_expr = match &self.matcher {
+            &BehaviourMatcher::Explicit(ref expr) => format!(" {} ", quote!(#expr)),
+            &BehaviourMatcher::PerArgument(ref exprs) => format!("({})", exprs.iter().map(|e| quote!(#e).to_string()).collect::<Vec<_>>().join(", "))
+        };
+        let return_expr = match &self.return_stmt {
+            &Return::FromValue(ref expr) => format!("then_return {}", quote!(#expr)),
+            &Return::FromCall(ref expr) => format!("then_return_from {}", quote!(#expr)),
+            &Return::FromSpy => panic!("Return::FromSpy is not supported yet"),
+            &Return::Panic => String::from("then_panic")
+        };
+        let repeat_expr = match &self.repeat {
+            &GivenRepeat::Times(ref expr) => format!("times {}", quote!(#expr)),
+            &GivenRepeat::Always => String::from("always")
+        };
+
+        let ufc_trait = &self.ufc_trait;
+        write!(f, "{}::{}{} {} {}",
+               quote!(#ufc_trait),
+               self.method,
+               match_expr,
+               return_expr,
+               repeat_expr
+        )
+    }
+}
+
+pub type GivenStatements = HashMap<syn::Ty, Vec<GivenStatement>>;
 lazy_static! {
     pub static ref GIVEN_STATEMENTS: Mutex<GivenStatements> = {
-        Mutex::new(Vec::new())
+        Mutex::new(HashMap::new())
     };
 }
 
@@ -173,9 +192,32 @@ pub struct ExpectStatement {
     pub repeat: ExpectRepeat
 }
 
-pub type ExpectStatements = Vec<ExpectStatement>;
+impl ::std::fmt::Display for ExpectStatement {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> Result<(), ::std::fmt::Error> {
+        let match_expr = match &self.matcher {
+            &BehaviourMatcher::Explicit(ref expr) => format!(" {} ", quote!(#expr)),
+            &BehaviourMatcher::PerArgument(ref exprs) => format!("({})", exprs.iter().map(|e| quote!(#e).to_string()).collect::<Vec<_>>().join(", "))
+        };
+        let repeat_expr = match &self.repeat {
+            &ExpectRepeat::Times(ref expr) => format!("times {}", quote!(#expr)),
+            &ExpectRepeat::AtLeast(ref expr) => format!("at_least {}", quote!(#expr)),
+            &ExpectRepeat::AtMost(ref expr) => format!("at_most {}", quote!(#expr)),
+            &ExpectRepeat::Between(ref lb, ref ub) => format!("at_least {}, {}", quote!(#lb), quote!(#ub)),
+        };
+
+        let ufc_trait = &self.ufc_trait;
+        write!(f, "{}::{}{} {}",
+               quote!(#ufc_trait),
+               self.method,
+               match_expr,
+               repeat_expr
+        )
+    }
+}
+
+pub type ExpectStatements = HashMap<syn::Ty, Vec<ExpectStatement>>;
 lazy_static! {
     pub static ref EXPECT_STATEMENTS: Mutex<ExpectStatements> = {
-        Mutex::new(Vec::new())
+        Mutex::new(HashMap::new())
     };
 }
