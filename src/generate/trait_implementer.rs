@@ -8,19 +8,27 @@ use super::InstantiatedTrait;
 use super::typed_arguments_for_method_sig;
 use super::type_param_mapper::*;
 use super::mock_struct_implementer::*;
+use super::behaviour::*;
 use data::*;
 
 pub struct TraitImplementer<'a> {
     mock_type_name: &'a syn::Ident,
-    instantiated_trait: &'a InstantiatedTrait
+    instantiated_trait: &'a InstantiatedTrait,
+    given_statements: &'a [GivenStatement],
+    expect_statements: &'a [ExpectStatement]
 }
 
 impl<'a> TraitImplementer<'a> {
-    pub fn for_(mock_type_name: &'a syn::Ident, instantiated_trait: &'a InstantiatedTrait)
-                -> TraitImplementer<'a>  {
+    pub fn for_(mock_type_name: &'a syn::Ident,
+                instantiated_trait: &'a InstantiatedTrait,
+                given_statements_for_trait: &'a [GivenStatement],
+                expect_statements_for_trait: &'a [ExpectStatement]
+               ) -> TraitImplementer<'a>  {
         TraitImplementer {
             mock_type_name: mock_type_name,
-            instantiated_trait: instantiated_trait
+            instantiated_trait: instantiated_trait,
+            given_statements: given_statements_for_trait,
+            expect_statements: expect_statements_for_trait
         }
     }
 
@@ -87,28 +95,52 @@ impl<'a> TraitImplementer<'a> {
             signature.generics.where_clause.to_tokens(&mut tokens);
             tokens.append("{");
 
+            let return_value = syn::Ident::from("return_value");
+            let behaviour_idx = syn::Ident::from("idx");
+            let maybe_remove_idx = syn::Ident::from("maybe_remove_idx");
+
+            let given_behaviour_impls = self.given_statements.iter()
+                                            .filter(|stmt| stmt.method == item.ident)
+                                            .map(|stmt| implement_given_behaviour_matcher(stmt, &self.instantiated_trait))
+                                            .collect::<Vec<_>>();
+            let expect_behaviour_impls = self.expect_statements.iter()
+                                            .filter(|stmt| stmt.method == item.ident)
+                                            .map(|stmt| implement_expect_behaviour_matcher(stmt, &self.instantiated_trait))
+                                            .collect::<Vec<_>>();
+
             let given_behaviours = self.instantiated_trait.given_behaviour_field_in_mock_for(&func_name);
+            let expect_behaviours = self.instantiated_trait.expect_behaviour_field_in_mock_for(&func_name);
             if let syn::FunctionRetTy::Ty(ref return_ty) = signature.decl.output {
                 let args = self.generate_argument_names(&signature.decl.inputs);
 
                 tokens.append(quote!{
                     let curried_args = (#(#args),*);
-                    let mut matched_idx = None;
-                    for (idx, behaviour) in self.#given_behaviours.borrow().iter().enumerate() {
-                        if behaviour.matches(&curried_args) {
-                            matched_idx = Some(idx);
-                            break;
-                        }
+                    for behaviour in self.#expect_behaviours.borrow().iter() {
+                        #(
+                            #expect_behaviour_impls
+                        )*
                     }
 
-                    if let Some(idx) = matched_idx {
-                        let result = self.#given_behaviours.borrow()[idx].return_value(&curried_args);
+                    let mut #maybe_remove_idx = None;
+                    let mut #return_value = None;
+                    for (#behaviour_idx, behaviour) in self.#given_behaviours.borrow().iter().enumerate() {
+                        #(
+                            #given_behaviour_impls
+                        )*
+                    }
+
+                    if let Some(idx) = #maybe_remove_idx {
                         if self.#given_behaviours.borrow()[idx].is_saturated() {
                             self.#given_behaviours.borrow_mut().remove(idx);
                         }
-                        return result;
                     }
-                    panic!("No matching given! statement found.");
+
+                    if #return_value.is_some() {
+                        return #return_value.unwrap();
+                    }
+                    panic!("No matching given! statement found among the remaining ones: {}",
+                        self.#given_behaviours.borrow().iter().map(|behaviour| format!("\n\t{}", behaviour.describe())).collect::<String>()
+                    )
                 });
             }
 
