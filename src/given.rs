@@ -15,10 +15,9 @@ named!(pub parse_bind -> BindingField,
     )
 );
 
-named!(pub parse_given -> GivenStatement,
+named!(parse_given_func -> (syn::Ident, BehaviourMatcher, Return, GivenRepeat),
     do_parse!(
-        punct!("<") >> mock_var: call!(syn::parse::ident) >> keyword!("as") >> ufc_trait: call!(syn::parse::ty) >> punct!(">") >>
-        punct!("::") >> method: call!(syn::parse::ident) >>
+        method: call!(syn::parse::ident) >>
         args: alt!( delimited!(punct!("("), separated_list!(punct!(","), syn::parse::expr), punct!(")")) => { |es| BehaviourMatcher::PerArgument(es) }
             | call!(syn::parse::expr) => { |e| BehaviourMatcher::Explicit(e) }
         ) >>
@@ -33,16 +32,46 @@ named!(pub parse_given -> GivenStatement,
                     | preceded!(keyword!("times"), syn::parse::expr) => { |e| GivenRepeat::Times(e) }
                     | keyword!("always") => { |e| GivenRepeat::Always }
         ) >>
-        (GivenStatement {
+        (method, args, return_stmt, repeat)
+    )
+);
+
+named!(pub parse_given -> Vec<GivenStatement>,
+    do_parse!(
+        punct!("<") >> mock_var: call!(syn::parse::ident) >> keyword!("as") >> ufc_trait: call!(syn::parse::ty) >> punct!(">") >>
+        punct!("::") >>
+        func: parse_given_func >>
+        (vec![GivenStatement {
             block_id: 0,
             stmt_id: 0,
             mock_var,
             ufc_trait,
-            method,
-            matcher: args,
-            return_stmt,
-            repeat
-        })
+            method: func.0,
+            matcher: func.1,
+            return_stmt: func.2,
+            repeat: func.3
+        }])
+    )
+);
+
+named!(pub parse_given_trait_block -> Vec<GivenStatement>,
+    do_parse!(
+        punct!("<") >> mock_var: call!(syn::parse::ident) >> keyword!("as") >> ufc_trait: call!(syn::parse::ty) >> punct!(">") >>
+        punct!("::") >> punct!("{") >>
+        statements: terminated_list!(punct!(";"), do_parse!(
+            func: parse_given_func >>
+            (GivenStatement {
+                block_id: 0,
+                stmt_id: 0,
+                mock_var: mock_var.clone(),
+                ufc_trait: ufc_trait.clone(),
+                method: func.0,
+                matcher: func.1,
+                return_stmt: func.2,
+                repeat: func.3
+            })
+        )) >> punct!("}") >>
+        (statements)
     )
 );
 
@@ -50,7 +79,9 @@ named!(pub parse_givens -> (Vec<BindingField>, Vec<GivenStatement>),
     delimited!(tuple!(keyword!("given"), punct!("!"), punct!("{")),
                tuple!(
                    terminated_list!(punct!(";"), parse_bind),
-                   terminated_list!(punct!(";"), parse_given)
+                   map!(terminated_list!(punct!(";"), alt!(parse_given | parse_given_trait_block)),
+                        |statements_list: Vec<Vec<GivenStatement>>| statements_list.into_iter().flat_map(|stmts| stmts.into_iter()).collect::<Vec<_>>()
+                   )
                ),
                punct!("}")
     )
@@ -121,7 +152,7 @@ mod test {
 
         #[test]
         fn should_parse_given_return_from_call() {
-            let stmt = parse_given("<mock as MyTrait>::foo() then_return_from || { 2 } always").expect("");
+            let stmt = &parse_given("<mock as MyTrait>::foo() then_return_from || { 2 } always").expect("")[0];
 
             assert_that!(&stmt.mock_var, eq(syn::Ident::from("mock")));
             assert_that!(&stmt.method, eq(syn::Ident::from("foo")));
@@ -132,7 +163,7 @@ mod test {
 
         #[test]
         fn should_parse_given_with_universal_function_call_syntax() {
-            let stmt = parse_given("<mock as MyTrait>::foo() then_return_from || { 2 } always").expect("");
+            let stmt = &parse_given("<mock as MyTrait>::foo() then_return_from || { 2 } always").expect("")[0];
 
             assert_that!(&stmt.mock_var, eq(syn::Ident::from("mock")));
             assert_that!(&stmt.ufc_trait, eq(syn::parse::ty("MyTrait").expect("Could not parse expected type")));
@@ -144,7 +175,7 @@ mod test {
 
         #[test]
         fn should_parse_given_spy_on_object() {
-            let stmt = parse_given("<mock as MyTrait>::foo() then_spy_on_object always").expect("");
+            let stmt = &parse_given("<mock as MyTrait>::foo() then_spy_on_object always").expect("")[0];
 
             assert_that!(&stmt.mock_var, eq(syn::Ident::from("mock")));
             assert_that!(&stmt.method, eq(syn::Ident::from("foo")));
@@ -155,7 +186,7 @@ mod test {
 
         #[test]
         fn should_parse_given_panic() {
-            let stmt = parse_given("<mock as MyTrait>::foo() then_panic always").expect("");
+            let stmt = &parse_given("<mock as MyTrait>::foo() then_panic always").expect("")[0];
 
             assert_that!(&stmt.mock_var, eq(syn::Ident::from("mock")));
             assert_that!(&stmt.method, eq(syn::Ident::from("foo")));
@@ -166,7 +197,7 @@ mod test {
 
         #[test]
         fn should_parse_given_once() {
-            let stmt = parse_given("<mock as MyTrait>::foo() then_return 1 once").expect("");
+            let stmt = &parse_given("<mock as MyTrait>::foo() then_return 1 once").expect("")[0];
 
             assert_that!(&stmt.mock_var, eq(syn::Ident::from("mock")));
             assert_that!(&stmt.method, eq(syn::Ident::from("foo")));
@@ -177,7 +208,7 @@ mod test {
 
         #[test]
         fn should_parse_given_times() {
-            let stmt = parse_given("<mock as MyTrait>::foo() then_return 1 times 2").expect("");
+            let stmt = &parse_given("<mock as MyTrait>::foo() then_return 1 times 2").expect("")[0];
 
             assert_that!(&stmt.mock_var, eq(syn::Ident::from("mock")));
             assert_that!(&stmt.method, eq(syn::Ident::from("foo")));
@@ -188,7 +219,7 @@ mod test {
 
         #[test]
         fn should_parse_given_always() {
-            let stmt = parse_given("<mock as MyTrait>::foo() then_return 1 always").expect("");
+            let stmt = &parse_given("<mock as MyTrait>::foo() then_return 1 always").expect("")[0];
 
             assert_that!(&stmt.mock_var, eq(syn::Ident::from("mock")));
             assert_that!(&stmt.method, eq(syn::Ident::from("foo")));
@@ -199,7 +230,7 @@ mod test {
 
         #[test]
         fn should_parse_given_args() {
-            let stmt = parse_given("<mock as MyTrait>::foo(2, 4) then_return 1 always").expect("");
+            let stmt = &parse_given("<mock as MyTrait>::foo(2, 4) then_return 1 always").expect("")[0];
 
             assert_that!(&stmt.mock_var, eq(syn::Ident::from("mock")));
             assert_that!(&stmt.method, eq(syn::Ident::from("foo")));
@@ -210,7 +241,7 @@ mod test {
 
         #[test]
         fn should_parse_given_matcher() {
-            let stmt = parse_given("<mock as MyTrait>::foo |a,b| true then_return 1 always").expect("");
+            let stmt = &parse_given("<mock as MyTrait>::foo |a,b| true then_return 1 always").expect("")[0];
 
             assert_that!(&stmt.mock_var, eq(syn::Ident::from("mock")));
             assert_that!(&stmt.method, eq(syn::Ident::from("foo")));
@@ -225,6 +256,14 @@ mod test {
 
             assert_that!(&binds.len(), eq(0));
             assert_that!(&givens.len(), eq(1));
+        }
+
+        #[test]
+        fn should_parse_givens_with_block() {
+            let (binds, givens) = parse_givens("given! { <mock as MyTrait>::foo() then_return 1 always; <mock as MyTrait>::{ foo() then_return 1 always; foo() then_return 1 always; }; }").expect("");
+
+            assert_that!(&binds.len(), eq(0));
+            assert_that!(&givens.len(), eq(3));
         }
 
         #[test]
