@@ -60,13 +60,13 @@ pub fn implement_given_behaviour() -> Vec<quote::Tokens> {
 pub fn implement_given_behaviour_matcher(statement: &GivenStatement, instantiated_trait: &InstantiatedTrait) -> quote::Tokens {
     let return_expr = match &statement.return_stmt {
         &Return::FromValue(ref expr) => quote!{ #expr },
-        &Return::FromCall(ref expr) => quote!{ (#expr)(curried_args) },
+        &Return::FromCall(ref expr) => quote!{ (#expr)(&curried_args) },
         &Return::FromSpy => panic!("return_from_spy is not implemented yet."),
         &Return::Panic => quote!{ panic!("Panic by behaviour. Don't forget the towel.") }
     };
 
     let match_expr = match statement.matcher {
-        BehaviourMatcher::Explicit(ref expr) => quote!{ (#expr)(curried_args) },
+        BehaviourMatcher::Explicit(ref expr) => quote!{ (#expr)(&curried_args) },
         BehaviourMatcher::PerArgument(ref exprs) => {
             let mut arg_tokens = quote::Tokens::new();
             arg_tokens.append("(");
@@ -189,7 +189,7 @@ pub fn implement_expect_behaviour() -> Vec<quote::Tokens> {
 
 pub fn implement_expect_behaviour_matcher(statement: &ExpectStatement, instantiated_trait: &InstantiatedTrait) -> quote::Tokens {
     let match_expr = match statement.matcher {
-        BehaviourMatcher::Explicit(ref expr) => quote!{ (#expr)(curried_args) },
+        BehaviourMatcher::Explicit(ref expr) => quote!{ (#expr)(&curried_args) },
         BehaviourMatcher::PerArgument(ref exprs) => {
             let mut arg_tokens = quote::Tokens::new();
             arg_tokens.append("(");

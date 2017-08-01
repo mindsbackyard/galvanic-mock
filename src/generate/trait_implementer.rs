@@ -69,9 +69,11 @@ impl<'a> TraitImplementer<'a> {
     fn implement_mocked_method(&self, item: &syn::TraitItem) -> Option<quote::Tokens> {
         let mut tokens = quote::Tokens::new();
         if let &syn::TraitItemKind::Method(ref signature, _) = &item.node {
-            if !signature.generics.ty_params.is_empty() {
-                panic!("Generic methods are not supported yet.")
-            }
+            signature.decl.inputs.iter().find(|arg| match arg {
+                &&syn::FnArg::SelfValue(..) => true,
+                &&syn::FnArg::SelfRef(..) => true,
+                _ => false
+            }).expect("Static methods are not supported yet.");
 
             let func_name = &item.ident;
 
@@ -114,7 +116,7 @@ impl<'a> TraitImplementer<'a> {
                 let args = self.generate_argument_names(&signature.decl.inputs);
 
                 tokens.append(quote!{
-                    let curried_args = (#(#args),*);
+                    let curried_args = (#(#args,)*);
                     for behaviour in self.#expect_behaviours.borrow().iter() {
                         #(
                             #expect_behaviour_impls
