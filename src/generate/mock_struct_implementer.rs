@@ -90,7 +90,7 @@ impl<'a> MockStructImplementer<'a> {
 
                 #[allow(dead_code)]
                 pub fn are_expected_behaviours_satisfied(&self) -> bool {
-                    let mut unsatisfied_messages = Vec::new();
+                    let mut unsatisfied_messages: Vec<String> = Vec::new();
                     #(for behaviour in self.#expect_behaviour_names.borrow().iter() {
                         if !behaviour.is_saturated() {
                             unsatisfied_messages.push(format!("Behaviour unsatisfied: {}", behaviour.describe()));
