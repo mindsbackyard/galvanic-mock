@@ -28,8 +28,7 @@ named!(parse_given_func -> (syn::Ident, BehaviourMatcher, Return, GivenRepeat),
                          | keyword!("then_spy_on_object") => { |e| Return::FromSpy }
                          | keyword!("then_panic") => { |e| Return::Panic }
         ) >>
-        repeat: alt!( keyword!("once") => { |_| GivenRepeat::Times(syn::parse::expr("1").expect("")) }
-                    | preceded!(keyword!("times"), syn::parse::expr) => { |e| GivenRepeat::Times(e) }
+        repeat: alt!( preceded!(keyword!("times"), syn::parse::expr) => { |e| GivenRepeat::Times(e) }
                     | keyword!("always") => { |e| GivenRepeat::Always }
         ) >>
         (method, args, return_stmt, repeat)
@@ -96,7 +95,8 @@ pub fn handle_given(source: &str, absolute_position: usize) -> (String, String) 
         let mut add_statements = Vec::new();
         for (idx, mut stmt) in given_definitions.into_iter().enumerate() {
             stmt.block_id = absolute_position;
-            stmt.stmt_id = idx;
+            stmt.stmt_id = absolute_position + idx;
+            let stmt_id = stmt.stmt_id;
 
             {
                 let mock_var = &stmt.mock_var;
@@ -104,8 +104,8 @@ pub fn handle_given(source: &str, absolute_position: usize) -> (String, String) 
                 let add_method = syn::Ident::from(format!("add_given_behaviour_for_trait{}_{}", unique_id, stmt.method));
                 let stmt_repr = format!("{}", stmt);
                 add_statements.push(match &stmt.repeat {
-                    &GivenRepeat::Always => quote!( #mock_var.#add_method(GivenBehaviour::with(#idx, binding.clone(), #stmt_repr)); ),
-                    &GivenRepeat::Times(ref expr) => quote!( #mock_var.#add_method(GivenBehaviour::with_times(#expr, #idx, binding.clone(), #stmt_repr)); ),
+                    &GivenRepeat::Always => quote!( #mock_var.#add_method(GivenBehaviour::with(#stmt_id, binding.clone(), #stmt_repr)); ),
+                    &GivenRepeat::Times(ref expr) => quote!( #mock_var.#add_method(GivenBehaviour::with_times(#expr, #stmt_id, binding.clone(), #stmt_repr)); ),
                 });
             }
 
@@ -193,17 +193,6 @@ mod test {
             // assert_that!(args.is_empty(), otherwise "some arguments are detected");
             assert_that!(&stmt.return_stmt, eq(Return::Panic));
             assert_that!(&stmt.repeat, eq(GivenRepeat::Always));
-        }
-
-        #[test]
-        fn should_parse_given_once() {
-            let stmt = &parse_given("<mock as MyTrait>::foo() then_return 1 once").expect("")[0];
-
-            assert_that!(&stmt.mock_var, eq(syn::Ident::from("mock")));
-            assert_that!(&stmt.method, eq(syn::Ident::from("foo")));
-            // assert_that!(args.is_empty(), otherwise "some arguments are detected");
-            assert_that!(&stmt.return_stmt, eq(Return::FromValue(syn::parse::expr("1").expect(""))));
-            assert_that!(&stmt.repeat, eq(GivenRepeat::Times(syn::parse::expr("1").expect(""))));
         }
 
         #[test]

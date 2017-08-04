@@ -22,12 +22,11 @@ named!(pub parse_expect_interaction -> ExpectStatement,
         args: alt!( delimited!(punct!("("), separated_list!(punct!(","), syn::parse::expr), punct!(")")) => { |es| BehaviourMatcher::PerArgument(es) }
             | call!(syn::parse::expr) => { |e| BehaviourMatcher::Explicit(e) }
         ) >>
-        repeat: alt!( keyword!("once") => { |e| ExpectRepeat::Times(syn::parse::expr("1").expect("")) }
-            | preceded!(keyword!("times"), syn::parse::expr) => { |e| ExpectRepeat::Times(e) }
-            | preceded!(keyword!("at_least"), syn::parse::expr) => { |e| ExpectRepeat::AtLeast(e) }
-            | preceded!(keyword!("at_most"), syn::parse::expr) => { |e| ExpectRepeat::AtMost(e) }
-            | preceded!(keyword!("between"), tuple!( call!(syn::parse::expr), preceded!(punct!(","), syn::parse::expr) )) => { |(e1, e2)| ExpectRepeat::Between(e1, e2) }
-            | keyword!("never") => { |e| ExpectRepeat::Times(syn::parse::expr("0").expect("")) }
+        repeat: alt!( preceded!(keyword!("times"), syn::parse::expr) => { |e| ExpectRepeat::Times(e) }
+                    | preceded!(keyword!("at_least"), syn::parse::expr) => { |e| ExpectRepeat::AtLeast(e) }
+                    | preceded!(keyword!("at_most"), syn::parse::expr) => { |e| ExpectRepeat::AtMost(e) }
+                    | preceded!(keyword!("between"), tuple!( call!(syn::parse::expr), preceded!(punct!(","), syn::parse::expr) )) => { |(e1, e2)| ExpectRepeat::Between(e1, e2) }
+                    | keyword!("never") => { |e| ExpectRepeat::Times(syn::parse::expr("0").expect("")) }
         ) >>
         (ExpectStatement {
             block_id: 0,
