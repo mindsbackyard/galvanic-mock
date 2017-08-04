@@ -19,12 +19,12 @@ use util::type_name_of;
 
 /// Generates all mock structs and implementations.
 pub fn handle_generate_mocks() -> Vec<quote::Tokens> {
-    let mut requested_traits = acquire!(REQUESTED_TRAITS);
-    let given_statements = acquire!(GIVEN_STATEMENTS);
-    let expect_statements = acquire!(EXPECT_STATEMENTS);
     let mockable_traits = acquire!(MOCKABLE_TRAITS);
+    let mut requested_traits = acquire!(REQUESTED_TRAITS);
+    let mut given_statements = acquire!(GIVEN_STATEMENTS);
+    let mut expect_statements = acquire!(EXPECT_STATEMENTS);
+    let mut bindings = acquire!(BINDINGS);
     let mocked_trait_unifier = acquire!(MOCKED_TRAIT_UNIFIER);
-    let bindings = acquire!(BINDINGS);
 
     let all_requested_traits = mocked_trait_unifier.get_traits();
     let instantiated_traits = collect_instantiated_traits(&all_requested_traits, &mockable_traits, &mocked_trait_unifier);
@@ -38,7 +38,10 @@ pub fn handle_generate_mocks() -> Vec<quote::Tokens> {
         tokens.extend(handle_generate_mock(mock_type_name, &inst_traits, &given_statements, &expect_statements));
     }
 
+    bindings.clear();
     requested_traits.clear();
+    given_statements.clear();
+    expect_statements.clear();
 
     tokens
 }
