@@ -89,12 +89,13 @@ pub fn use_mocks(args: TokenStream, input: TokenStream) -> TokenStream {
     // once all macro invocations have been removed from the string (and replaced with the actual mock code) it can be parsed back into a function item
     let fn_ = syn::parse_item(&reassembled).expect("Reassembled function whi");
     let fn_ident = &fn_.ident;
+    let fn_vis = &fn_.vis;
     let mod_fn = syn::Ident::from(format!("mod_{}", fn_ident));
 
     let mocks = handle_generate_mocks();
 
     let generated_mock = (quote! {
-        pub use #mod_fn::#fn_ident;
+        #fn_vis use #mod_fn::#fn_ident;
         mod #mod_fn {
             use super::*;
 
