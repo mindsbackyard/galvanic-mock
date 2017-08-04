@@ -16,6 +16,7 @@ pub fn implement_given_behaviour() -> Vec<quote::Tokens> {
     };
 
     let behaviour_impl = quote! {
+        #[allow(dead_code)]
         impl GivenBehaviour {
             pub fn with(stmt_id: usize, bound: std::rc::Rc<std::any::Any>, stmt_repr: &str) -> Self {
                 Self {
@@ -120,6 +121,7 @@ pub fn implement_expect_behaviour() -> Vec<quote::Tokens> {
     };
 
     let behaviour_impl = quote! {
+        #[allow(dead_code)]
         impl ExpectBehaviour {
             pub fn with_times(times: usize, stmt_id: usize, bound: std::rc::Rc<std::any::Any>, stmt_repr: &str) -> Self {
                 Self {
