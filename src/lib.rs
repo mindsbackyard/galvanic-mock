@@ -95,8 +95,12 @@ pub fn use_mocks(args: TokenStream, input: TokenStream) -> TokenStream {
     let mocks = handle_generate_mocks();
 
     let generated_mock = (quote! {
-        #fn_vis use #mod_fn::#fn_ident;
+        #[allow(unused_imports)]
+        #fn_vis use self::#mod_fn::#fn_ident;
         mod #mod_fn {
+            #![allow(dead_code)]
+            #![allow(unused_imports)]
+            #![allow(unused_variables)]
             use super::*;
 
             #fn_
