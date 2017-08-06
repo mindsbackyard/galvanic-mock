@@ -56,13 +56,11 @@ impl<'a> TraitImplementer<'a> {
         }
     }
 
-    fn extract_associated_types(trait_ty: &mut syn::Ty, lifetimes: Vec<syn::Lifetime>) -> Vec<syn::TypeBinding> {
-        if let &mut syn::Ty::Path(_, ref mut path) = trait_ty {
-            let ty = path.segments.last_mut().expect("A type path without segment is not valid.");
-            if let &mut syn::PathParameters::AngleBracketed(ref mut params) = &mut ty.parameters {
-                params.lifetimes = lifetimes;
-                std::mem::replace(&mut params.bindings, Vec::new())
-            } else { Vec::new() }
+    fn extract_associated_types(trait_ty: &mut syn::Path, lifetimes: Vec<syn::Lifetime>) -> Vec<syn::TypeBinding> {
+        let ty = trait_ty.segments.last_mut().expect("A type path without segment is not valid.");
+        if let &mut syn::PathParameters::AngleBracketed(ref mut params) = &mut ty.parameters {
+            params.lifetimes = lifetimes;
+            std::mem::replace(&mut params.bindings, Vec::new())
         } else { Vec::new() }
     }
 

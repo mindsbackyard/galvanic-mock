@@ -35,7 +35,7 @@ impl TraitInfo {
     }
 }
 
-pub type MockableTraits = HashMap<TypeName, TraitInfo>;
+pub type MockableTraits = HashMap<syn::Path, TraitInfo>;
 lazy_static! {
     pub static ref MOCKABLE_TRAITS: Mutex<MockableTraits> = {
         Mutex::new(HashMap::new())
@@ -43,11 +43,12 @@ lazy_static! {
 }
 
 
-pub type TraitList = Vec<syn::Ty>;
-
-pub type RequestedTraits = HashMap<TypeName, TraitList>;
+pub struct RequestedMock {
+    pub traits: Vec<syn::Path>,
+    pub attributes: Vec<syn::Attribute>
+}
 lazy_static! {
-    pub static ref REQUESTED_TRAITS: Mutex<RequestedTraits> = {
+    pub static ref REQUESTED_MOCKS: Mutex<HashMap<TypeName, RequestedMock>> = {
         Mutex::new(HashMap::new())
     };
 }
@@ -55,7 +56,7 @@ lazy_static! {
 
 pub struct MockedTraitUnifier {
     next_id: usize,
-    trait_to_unique_id: HashMap<syn::Ty, usize>
+    trait_to_unique_id: HashMap<syn::Path, usize>
 }
 
 impl MockedTraitUnifier {
@@ -63,18 +64,18 @@ impl MockedTraitUnifier {
         Self { next_id: 1, trait_to_unique_id: HashMap::new() }
     }
 
-    pub fn register_trait(&mut self, new_trait_ty: syn::Ty) {
-        if self.trait_to_unique_id.get(&new_trait_ty).is_none() {
-            self.trait_to_unique_id.insert(new_trait_ty, self.next_id);
+    pub fn register_trait(&mut self, new_trait_ty: &syn::Path) {
+        if self.trait_to_unique_id.get(new_trait_ty).is_none() {
+            self.trait_to_unique_id.insert(new_trait_ty.clone(), self.next_id);
             self.next_id += 1;
         }
     }
 
-    pub fn get_unique_id_for(&self, trait_ty: &syn::Ty) -> Option<usize> {
+    pub fn get_unique_id_for(&self, trait_ty: &syn::Path) -> Option<usize> {
         self.trait_to_unique_id.get(trait_ty).cloned()
     }
 
-    pub fn get_traits(&self) -> Vec<syn::Ty> {
+    pub fn get_traits(&self) -> Vec<syn::Path> {
         self.trait_to_unique_id.keys().cloned().collect()
     }
 }
@@ -130,7 +131,7 @@ pub struct GivenStatement {
     pub block_id: usize,
     pub stmt_id: usize,
     pub mock_var: syn::Ident,
-    pub ufc_trait: syn::Ty,
+    pub ufc_trait: syn::Path,
     pub method: MethodName,
     pub matcher: BehaviourMatcher,
     pub return_stmt: Return,
@@ -165,7 +166,7 @@ impl ::std::fmt::Display for GivenStatement {
     }
 }
 
-pub type GivenStatements = HashMap<syn::Ty, Vec<GivenStatement>>;
+pub type GivenStatements = HashMap<syn::Path, Vec<GivenStatement>>;
 lazy_static! {
     pub static ref GIVEN_STATEMENTS: Mutex<GivenStatements> = {
         Mutex::new(HashMap::new())
@@ -186,7 +187,7 @@ pub struct ExpectStatement {
     pub block_id: usize,
     pub stmt_id: usize,
     pub mock_var: syn::Ident,
-    pub ufc_trait: syn::Ty,
+    pub ufc_trait: syn::Path,
     pub method: MethodName,
     pub matcher: BehaviourMatcher,
     pub repeat: ExpectRepeat
@@ -215,7 +216,7 @@ impl ::std::fmt::Display for ExpectStatement {
     }
 }
 
-pub type ExpectStatements = HashMap<syn::Ty, Vec<ExpectStatement>>;
+pub type ExpectStatements = HashMap<syn::Path, Vec<ExpectStatement>>;
 lazy_static! {
     pub static ref EXPECT_STATEMENTS: Mutex<ExpectStatements> = {
         Mutex::new(HashMap::new())

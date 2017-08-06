@@ -1,5 +1,4 @@
 #![feature(proc_macro)]
-#![allow(warnings)]
 #![recursion_limit = "128"]
 
 #[macro_use] mod util;
@@ -33,23 +32,58 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
+
+enum MockedTraitLocation {
+    TraitDef(syn::Path),
+    Referred(syn::Path)
+}
+named!(parse_trait_path -> MockedTraitLocation,
+    delimited!(
+        punct!("("),
+        do_parse!(
+            external: option!(alt!(keyword!("intern") | keyword!("extern"))) >> path: call!(syn::parse::path) >>
+            (match external {
+                Some(..) => MockedTraitLocation::Referred(path),
+                None => MockedTraitLocation::TraitDef(path)
+            })
+        ),
+        punct!(")")
+    )
+);
+
 #[proc_macro_attribute]
 pub fn mockable(args: TokenStream, input: TokenStream) -> TokenStream {
     let s = input.to_string();
     let trait_item = syn::parse_item(&s).expect("Expecting a trait definition.");
 
+    let args_str = &args.to_string();
+
     match trait_item.node {
         syn::ItemKind::Trait(safety, generics, bounds, items) => {
             let mut mockable_traits = acquire!(MOCKABLE_TRAITS);
-            mockable_traits.insert(trait_item.ident.clone(), TraitInfo::new(safety, generics, bounds, items));
+
+            if args_str.is_empty() {
+                mockable_traits.insert(trait_item.ident.clone().into(), TraitInfo::new(safety, generics, bounds, items));
+                return input;
+            }
+
+            let trait_location = parse_trait_path(args_str)
+                                 .expect(concat!("#[mockable(..)] requires the absolute path of the trait's module.",
+                                                 "It must be preceded with `extern` if the trait is from another crate"));
+            match trait_location {
+                MockedTraitLocation::TraitDef(mut trait_path) => {
+                    trait_path.segments.push(trait_item.ident.clone().into());
+                    mockable_traits.insert(trait_path, TraitInfo::new(safety, generics, bounds, items));
+                    input
+                },
+                MockedTraitLocation::Referred(mut trait_path) => {
+                    trait_path.segments.push(trait_item.ident.clone().into());
+                    mockable_traits.insert(trait_path, TraitInfo::new(safety, generics, bounds, items));
+                    "".parse().unwrap()
+                }
+            }
         },
         _ => panic!("Expecting a trait definition.")
-    }
-
-    if args.to_string().is_empty() {
-        input
-    } else {
-        "".parse().unwrap()
     }
 }
 
@@ -102,6 +136,7 @@ pub fn use_mocks(args: TokenStream, input: TokenStream) -> TokenStream {
             #![allow(unused_imports)]
             #![allow(unused_variables)]
             use super::*;
+            use std;
 
             #fn_
 

@@ -17,7 +17,7 @@ named!(pub parse_bind -> BindingField,
 
 named!(pub parse_expect_interaction -> ExpectStatement,
     do_parse!(
-        punct!("<") >> mock_var: call!(syn::parse::ident) >> keyword!("as") >> ufc_trait: call!(syn::parse::ty) >> punct!(">") >>
+        punct!("<") >> mock_var: call!(syn::parse::ident) >> keyword!("as") >> ufc_trait: call!(syn::parse::path) >> punct!(">") >>
         punct!("::") >> method: call!(syn::parse::ident) >>
         args: alt!( delimited!(punct!("("), separated_list!(punct!(","), syn::parse::expr), punct!(")")) => { |es| BehaviourMatcher::PerArgument(es) }
             | call!(syn::parse::expr) => { |e| BehaviourMatcher::Explicit(e) }
@@ -63,7 +63,12 @@ pub fn handle_expect_interactions(source: &str, absolute_position: usize) -> (St
 
             {
                 let mock_var = &stmt.mock_var;
-                let unique_id = mocked_trait_unifier.get_unique_id_for(&stmt.ufc_trait).expect("");
+                let ufc_trait = &stmt.ufc_trait;
+                let unique_id = mocked_trait_unifier
+                                .get_unique_id_for(ufc_trait)
+                                .expect(&format!(concat!("The trait `{}` used in the expect statement has not been requested for any mock. ",
+                                                         "Did you specify all generic and associated types (and in the same order)?"), quote!(#ufc_trait)));
+
                 let add_method = syn::Ident::from(format!("add_expect_behaviour_for_trait{}_{}", unique_id, stmt.method));
                 let stmt_repr = format!("{}", stmt);
                 add_statements.push(match &stmt.repeat {

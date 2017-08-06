@@ -10,6 +10,8 @@ use super::InstantiatedTrait;
 pub struct MockStructImplementer<'a> {
     /// The name of the mock type
     mock_type_name: &'a syn::Ident,
+    /// The attributes which should be applied to the generated mock
+    attributes: &'a [syn::Attribute],
     /// The traits which shall be implemented for the mock
     instantiated_traits: &'a [&'a InstantiatedTrait],
 }
@@ -21,8 +23,8 @@ impl<'a> MockStructImplementer<'a> {
     /// * `mock_type_name` - The name of the new struct
     /// * `requested_trait_types` - The traits which shall be implemented for the mock
     /// * `trait_infos` - A `TraitInfo` for each requested trait in the same order
-    pub fn for_(mock_type_name: &'a syn::Ident, instantiated_traits: &'a [&'a InstantiatedTrait]) -> Self {
-        MockStructImplementer { mock_type_name, instantiated_traits }
+    pub fn for_(mock_type_name: &'a syn::Ident, attributes: &'a [syn::Attribute], instantiated_traits: &'a [&'a InstantiatedTrait]) -> Self {
+        MockStructImplementer { mock_type_name, attributes, instantiated_traits }
     }
 
     /// Generate the struct definition of the mock and the methods for creating/interacting with the mock.
@@ -49,8 +51,10 @@ impl<'a> MockStructImplementer<'a> {
         let given_behaviour_names = &given_behaviour_names;
         let expect_behaviour_names = &expect_behaviour_names;
         let behaviour_types = &behaviour_types;
+        let attributes = self.attributes;
 
         let mock_struct = quote! {
+            #(#attributes)*
             struct #mock_type_name {
                 #(#given_behaviour_names: std::cell::RefCell<Vec<GivenBehaviour>>,)*
                 #(#expect_behaviour_names: std::cell::RefCell<Vec<ExpectBehaviour>>,)*

@@ -37,7 +37,7 @@ named!(parse_given_func -> (syn::Ident, BehaviourMatcher, Return, GivenRepeat),
 
 named!(pub parse_given -> Vec<GivenStatement>,
     do_parse!(
-        punct!("<") >> mock_var: call!(syn::parse::ident) >> keyword!("as") >> ufc_trait: call!(syn::parse::ty) >> punct!(">") >>
+        punct!("<") >> mock_var: call!(syn::parse::ident) >> keyword!("as") >> ufc_trait: call!(syn::parse::path) >> punct!(">") >>
         punct!("::") >>
         func: parse_given_func >>
         (vec![GivenStatement {
@@ -55,7 +55,7 @@ named!(pub parse_given -> Vec<GivenStatement>,
 
 named!(pub parse_given_trait_block -> Vec<GivenStatement>,
     do_parse!(
-        punct!("<") >> mock_var: call!(syn::parse::ident) >> keyword!("as") >> ufc_trait: call!(syn::parse::ty) >> punct!(">") >>
+        punct!("<") >> mock_var: call!(syn::parse::ident) >> keyword!("as") >> ufc_trait: call!(syn::parse::path) >> punct!(">") >>
         punct!("::") >> punct!("{") >>
         statements: terminated_list!(punct!(";"), do_parse!(
             func: parse_given_func >>
@@ -100,7 +100,12 @@ pub fn handle_given(source: &str, absolute_position: usize) -> (String, String) 
 
             {
                 let mock_var = &stmt.mock_var;
-                let unique_id = mocked_trait_unifier.get_unique_id_for(&stmt.ufc_trait).expect("");
+                let ufc_trait = &stmt.ufc_trait;
+                let unique_id = mocked_trait_unifier
+                                .get_unique_id_for(ufc_trait)
+                                .expect(&format!(concat!("The trait `{}` used in the given statement has not been requested for any mock. ",
+                                                         "Did you specify all generic and associated types (and in the same order)?"), quote!(#ufc_trait)));
+
                 let add_method = syn::Ident::from(format!("add_given_behaviour_for_trait{}_{}", unique_id, stmt.method));
                 let stmt_repr = format!("{}", stmt);
                 add_statements.push(match &stmt.repeat {
@@ -166,7 +171,7 @@ mod test {
             let stmt = &parse_given("<mock as MyTrait>::foo() then_return_from || { 2 } always").expect("")[0];
 
             assert_that!(&stmt.mock_var, eq(syn::Ident::from("mock")));
-            assert_that!(&stmt.ufc_trait, eq(syn::parse::ty("MyTrait").expect("Could not parse expected type")));
+            assert_that!(&stmt.ufc_trait, eq(syn::parse::path("MyTrait").expect("Could not parse expected type")));
             assert_that!(&stmt.method, eq(syn::Ident::from("foo")));
             // assert_that!(args.is_empty(), otherwise "some arguments are detected");
             assert_that!(&stmt.return_stmt, eq(Return::FromCall(syn::parse::expr("|| { 2 }").expect(""))));
