@@ -118,6 +118,16 @@ impl<'a> MockStructImplementer<'a> {
             }
         };
 
-        vec![mock_struct, mock_impl]
+        let mock_drop_impl = quote! {
+            impl std::ops::Drop for #mock_type_name {
+                fn drop(&mut self) {
+                    if self.verify_on_drop {
+                        self.verify();
+                    }
+                }
+            }
+        };
+
+        vec![mock_struct, mock_impl, mock_drop_impl]
     }
 }
