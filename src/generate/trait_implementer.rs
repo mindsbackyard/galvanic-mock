@@ -130,7 +130,7 @@ impl<'a> TraitImplementer<'a> {
                     }
 
                     if let Some(idx) = #maybe_remove_idx {
-                        if self.#given_behaviours.borrow()[idx].is_saturated() {
+                        if (&self.#given_behaviours.borrow()[idx] as &GivenBehaviour).is_saturated() {
                             self.#given_behaviours.borrow_mut().remove(idx);
                         }
                     }
