@@ -37,6 +37,7 @@ enum MockedTraitLocation {
     TraitDef(syn::Path),
     Referred(syn::Path)
 }
+
 named!(parse_trait_path -> MockedTraitLocation,
     delimited!(
         punct!("("),
@@ -69,7 +70,7 @@ pub fn mockable(args: TokenStream, input: TokenStream) -> TokenStream {
 
             let trait_location = parse_trait_path(args_str)
                                  .expect(concat!("#[mockable(..)] requires the absolute path of the trait's module.",
-                                                 "It must be preceded with `extern` if the trait is from another crate"));
+                                                 "It must be preceded with `extern`/`intern` if the trait is defined in another crate/module"));
             match trait_location {
                 MockedTraitLocation::TraitDef(mut trait_path) => {
                     trait_path.segments.push(trait_item.ident.clone().into());
