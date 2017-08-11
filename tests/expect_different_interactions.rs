@@ -371,3 +371,34 @@ mod test_never {
         mock.verify();
     }
 }
+
+
+mod multiple_traits {
+    use super::*;
+
+    #[mockable(::multiple_traits)]
+    trait OtherTrait {
+        fn other_func(&self) -> i32;
+    }
+
+    #[test]
+    #[use_mocks]
+    fn matching_expectation() {
+        let mock = new_mock!(TestTrait, ::multiple_traits::OtherTrait);
+
+        given! {
+            <mock as TestTrait>::func |_| true then_return 12 always;
+            <mock as ::multiple_traits::OtherTrait>::other_func |_| true then_return 24 always;
+        }
+
+        expect_interactions! {
+            <mock as TestTrait>::func(|&a| a < 2) never;
+            <mock as ::multiple_traits::OtherTrait>::other_func |_| true never;
+        }
+
+        mock.func(3);
+        mock.func(3);
+
+        mock.verify();
+    }
+}
