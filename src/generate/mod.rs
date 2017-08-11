@@ -56,8 +56,11 @@ fn collect_instantiated_traits(requested_traits: &[syn::Path], mockable_traits: 
         //     panic!("All mocked traits are supposed to be given without path by their name only.");
         // }
 
-        let trait_info = mockable_traits.get(&strip_generics(trait_path.clone()))
-                                        .expect(&format!("All mocked traits must be defined using 'mockable!': {:?} .... {:?}", mockable_traits.keys().collect::<Vec<_>>(), trait_path));
+        let trait_info = mockable_traits
+                         .get(&strip_generics(trait_path.clone()))
+                         .expect(&format!("All mocked traits must be defined using 'mockable!': `{}` not found in {}",
+                                          quote!(#trait_path).to_string(),
+                                          mockable_traits.keys().map(|k| quote!(#k).to_string()).collect::<Vec<_>>().join(", ")));
 
         let mut mapper = TypeParamMapper::new();
         {

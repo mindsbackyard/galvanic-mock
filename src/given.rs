@@ -132,7 +132,7 @@ pub fn handle_given(source: &str, absolute_position: usize) -> (String, String) 
         };
 
         return (given_block.to_string(), remainder.to_owned());
-    } else { panic!("Expecting a `given!` defintion: MOCK_VAR_NAME.METHOD(ARGS) THEN REPEAT; ..."); }
+    } else { panic!("Expecting a `given!` definition: <MOCK_VAR_NAME as MOCKED_TRAIT>::METHOD(MATCHER, ...) THEN REPEAT; ..."); }
 }
 
 
