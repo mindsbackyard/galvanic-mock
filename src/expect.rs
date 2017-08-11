@@ -59,7 +59,8 @@ pub fn handle_expect_interactions(source: &str, absolute_position: usize) -> (St
         let mut add_statements = Vec::new();
         for (idx, mut stmt) in expect_definitions.into_iter().enumerate() {
             stmt.block_id = absolute_position;
-            stmt.stmt_id = idx;
+            stmt.stmt_id = absolute_position + idx;
+            let stmt_id = stmt.stmt_id;
 
             {
                 let mock_var = &stmt.mock_var;
@@ -72,10 +73,10 @@ pub fn handle_expect_interactions(source: &str, absolute_position: usize) -> (St
                 let add_method = syn::Ident::from(format!("add_expect_behaviour_for_trait{}_{}", unique_id, stmt.method));
                 let stmt_repr = format!("{}", stmt);
                 add_statements.push(match &stmt.repeat {
-                    &ExpectRepeat::Times(ref expr) => quote!( #mock_var.#add_method(ExpectBehaviour::with_times(#expr, #idx, binding.clone(), #stmt_repr)); ),
-                    &ExpectRepeat::AtLeast(ref expr) => quote!( #mock_var.#add_method(ExpectBehaviour::with_at_least(#expr, #idx, binding.clone(), #stmt_repr)); ),
-                    &ExpectRepeat::AtMost(ref expr) => quote!( #mock_var.#add_method(ExpectBehaviour::with_at_most(#expr, #idx, binding.clone(), #stmt_repr)); ),
-                    &ExpectRepeat::Between(ref expr_lower, ref expr_upper) => quote!( #mock_var.#add_method(ExpectBehaviour::with_between(#expr_lower, #expr_upper, #idx, binding.clone(), #stmt_repr)); ),
+                    &ExpectRepeat::Times(ref expr) => quote!( #mock_var.#add_method(ExpectBehaviour::with_times(#expr, #stmt_id, binding.clone(), #stmt_repr)); ),
+                    &ExpectRepeat::AtLeast(ref expr) => quote!( #mock_var.#add_method(ExpectBehaviour::with_at_least(#expr, #stmt_id, binding.clone(), #stmt_repr)); ),
+                    &ExpectRepeat::AtMost(ref expr) => quote!( #mock_var.#add_method(ExpectBehaviour::with_at_most(#expr, #stmt_id, binding.clone(), #stmt_repr)); ),
+                    &ExpectRepeat::Between(ref expr_lower, ref expr_upper) => quote!( #mock_var.#add_method(ExpectBehaviour::with_between(#expr_lower, #expr_upper, #stmt_id, binding.clone(), #stmt_repr)); ),
                 });
             }
             statements.entry(stmt.ufc_trait.clone())
@@ -96,5 +97,5 @@ pub fn handle_expect_interactions(source: &str, absolute_position: usize) -> (St
         };
 
         return (given_block.to_string(), remainder.to_owned());
-    } else { panic!("Expecting a `expect_interactions!` defintion"); }
+    } else { panic!("Expecting a `expect_interactions!` definition: <MOCK_VAR_NAME as MOCKED_TRAIT>::METHOD(MATCHER, ...) REPEAT; ..."); }
 }
