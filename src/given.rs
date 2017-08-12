@@ -90,7 +90,6 @@ named!(pub parse_givens -> (Vec<BindingField>, Vec<GivenStatement>),
 pub fn handle_given(source: &str, absolute_position: usize) -> (String, String) {
     if let IResult::Done(remainder, (binding_fields, given_definitions)) = parse_givens(source) {
         let mut statements = acquire!(GIVEN_STATEMENTS);
-        let mocked_trait_unifier = acquire!(MOCKED_TRAIT_UNIFIER);
 
         let mut add_statements = Vec::new();
         for (idx, mut stmt) in given_definitions.into_iter().enumerate() {
@@ -100,17 +99,13 @@ pub fn handle_given(source: &str, absolute_position: usize) -> (String, String) 
 
             {
                 let mock_var = &stmt.mock_var;
-                let ufc_trait = &stmt.ufc_trait;
-                let unique_id = mocked_trait_unifier
-                                .get_unique_id_for(ufc_trait)
-                                .expect(&format!(concat!("The trait `{}` used in the given statement has not been requested for any mock. ",
-                                                         "Did you specify all generic and associated types (and in the same order)?"), quote!(#ufc_trait)));
+                let ufc_trait_name = stmt.trait_name();
+                let method_name = stmt.method_name();
 
-                let add_method = syn::Ident::from(format!("add_given_behaviour_for_trait{}_{}", unique_id, stmt.method));
                 let stmt_repr = format!("{}", stmt);
                 add_statements.push(match &stmt.repeat {
-                    &GivenRepeat::Always => quote!( #mock_var.#add_method(GivenBehaviour::with(#stmt_id, binding.clone(), #stmt_repr)); ),
-                    &GivenRepeat::Times(ref expr) => quote!( #mock_var.#add_method(GivenBehaviour::with_times(#expr, #stmt_id, binding.clone(), #stmt_repr)); ),
+                    &GivenRepeat::Always => quote!( #mock_var.add_given_behaviour(#ufc_trait_name, #method_name, GivenBehaviour::with(#stmt_id, binding.clone(), #stmt_repr)); ),
+                    &GivenRepeat::Times(ref expr) => quote!( #mock_var.add_given_behaviour(#ufc_trait_name, #method_name, GivenBehaviour::with_times(#expr, #stmt_id, binding.clone(), #stmt_repr)); ),
                 });
             }
 

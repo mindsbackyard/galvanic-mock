@@ -54,7 +54,6 @@ named!(pub parse_expect_interactions -> (Vec<BindingField>, Vec<ExpectStatement>
 pub fn handle_expect_interactions(source: &str, absolute_position: usize) -> (String, String) {
     if let IResult::Done(remainder, (binding_fields, expect_definitions)) = parse_expect_interactions(source) {
         let mut statements = acquire!(EXPECT_STATEMENTS);
-        let mocked_trait_unifier = acquire!(MOCKED_TRAIT_UNIFIER);
 
         let mut add_statements = Vec::new();
         for (idx, mut stmt) in expect_definitions.into_iter().enumerate() {
@@ -64,19 +63,15 @@ pub fn handle_expect_interactions(source: &str, absolute_position: usize) -> (St
 
             {
                 let mock_var = &stmt.mock_var;
-                let ufc_trait = &stmt.ufc_trait;
-                let unique_id = mocked_trait_unifier
-                                .get_unique_id_for(ufc_trait)
-                                .expect(&format!(concat!("The trait `{}` used in the expect statement has not been requested for any mock. ",
-                                                         "Did you specify all generic and associated types (and in the same order)?"), quote!(#ufc_trait)));
+                let ufc_trait_name = stmt.trait_name();
+                let method_name = stmt.method_name();
 
-                let add_method = syn::Ident::from(format!("add_expect_behaviour_for_trait{}_{}", unique_id, stmt.method));
                 let stmt_repr = format!("{}", stmt);
                 add_statements.push(match &stmt.repeat {
-                    &ExpectRepeat::Times(ref expr) => quote!( #mock_var.#add_method(ExpectBehaviour::with_times(#expr, #stmt_id, binding.clone(), #stmt_repr)); ),
-                    &ExpectRepeat::AtLeast(ref expr) => quote!( #mock_var.#add_method(ExpectBehaviour::with_at_least(#expr, #stmt_id, binding.clone(), #stmt_repr)); ),
-                    &ExpectRepeat::AtMost(ref expr) => quote!( #mock_var.#add_method(ExpectBehaviour::with_at_most(#expr, #stmt_id, binding.clone(), #stmt_repr)); ),
-                    &ExpectRepeat::Between(ref expr_lower, ref expr_upper) => quote!( #mock_var.#add_method(ExpectBehaviour::with_between(#expr_lower, #expr_upper, #stmt_id, binding.clone(), #stmt_repr)); ),
+                    &ExpectRepeat::Times(ref expr) => quote!( #mock_var.add_expect_behaviour(#ufc_trait_name, #method_name, ExpectBehaviour::with_times(#expr, #stmt_id, binding.clone(), #stmt_repr)); ),
+                    &ExpectRepeat::AtLeast(ref expr) => quote!( #mock_var.add_expect_behaviour(#ufc_trait_name, #method_name, ExpectBehaviour::with_at_least(#expr, #stmt_id, binding.clone(), #stmt_repr)); ),
+                    &ExpectRepeat::AtMost(ref expr) => quote!( #mock_var.add_expect_behaviour(#ufc_trait_name, #method_name, ExpectBehaviour::with_at_most(#expr, #stmt_id, binding.clone(), #stmt_repr)); ),
+                    &ExpectRepeat::Between(ref expr_lower, ref expr_upper) => quote!( #mock_var.add_expect_behaviour(#ufc_trait_name, #method_name, ExpectBehaviour::with_between(#expr_lower, #expr_upper, #stmt_id, binding.clone(), #stmt_repr)); ),
                 });
             }
             statements.entry(stmt.ufc_trait.clone())

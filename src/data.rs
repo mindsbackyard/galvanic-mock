@@ -54,39 +54,6 @@ lazy_static! {
 }
 
 
-pub struct MockedTraitUnifier {
-    next_id: usize,
-    trait_to_unique_id: HashMap<syn::Path, usize>
-}
-
-impl MockedTraitUnifier {
-    pub fn new() -> Self {
-        Self { next_id: 1, trait_to_unique_id: HashMap::new() }
-    }
-
-    pub fn register_trait(&mut self, new_trait_ty: &syn::Path) {
-        if self.trait_to_unique_id.get(new_trait_ty).is_none() {
-            self.trait_to_unique_id.insert(new_trait_ty.clone(), self.next_id);
-            self.next_id += 1;
-        }
-    }
-
-    pub fn get_unique_id_for(&self, trait_ty: &syn::Path) -> Option<usize> {
-        self.trait_to_unique_id.get(trait_ty).cloned()
-    }
-
-    pub fn get_traits(&self) -> Vec<syn::Path> {
-        self.trait_to_unique_id.keys().cloned().collect()
-    }
-}
-
-lazy_static! {
-    pub static ref MOCKED_TRAIT_UNIFIER: Mutex<MockedTraitUnifier> = {
-        Mutex::new(MockedTraitUnifier::new())
-    };
-}
-
-
 pub struct Binding {
     pub block_id: usize,
     pub fields: Vec<BindingField>
@@ -136,6 +103,18 @@ pub struct GivenStatement {
     pub matcher: BehaviourMatcher,
     pub return_stmt: Return,
     pub repeat: GivenRepeat,
+}
+
+impl GivenStatement {
+    pub fn trait_name(&self) -> String {
+        let ufc_trait = &self.ufc_trait;
+        quote!(#ufc_trait).to_string()
+    }
+
+    pub fn method_name(&self) -> String {
+        let method = &self.method;
+        quote!(#method).to_string()
+    }
 }
 
 impl ::std::fmt::Display for GivenStatement {
@@ -191,6 +170,18 @@ pub struct ExpectStatement {
     pub method: MethodName,
     pub matcher: BehaviourMatcher,
     pub repeat: ExpectRepeat
+}
+
+impl ExpectStatement {
+    pub fn trait_name(&self) -> String {
+        let ufc_trait = &self.ufc_trait;
+        quote!(#ufc_trait).to_string()
+    }
+
+    pub fn method_name(&self) -> String {
+        let method = &self.method;
+        quote!(#method).to_string()
+    }
 }
 
 impl ::std::fmt::Display for ExpectStatement {

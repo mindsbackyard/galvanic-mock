@@ -24,17 +24,13 @@ pub fn handle_generate_mocks() -> Vec<quote::Tokens> {
     let mut given_statements = acquire!(GIVEN_STATEMENTS);
     let mut expect_statements = acquire!(EXPECT_STATEMENTS);
     let mut bindings = acquire!(BINDINGS);
-    let mocked_trait_unifier = acquire!(MOCKED_TRAIT_UNIFIER);
-
-    let all_requested_traits = mocked_trait_unifier.get_traits();
-    let instantiated_traits = collect_instantiated_traits(&all_requested_traits, &mockable_traits, &mocked_trait_unifier);
 
     let mut tokens = implement_bindings(&bindings);
     tokens.extend(implement_given_behaviour());
     tokens.extend(implement_expect_behaviour());
 
     for (mock_type_name, requested_mock) in requested_mocks.iter() {
-        let inst_traits = requested_mock.traits.iter().map(|trait_ty| instantiated_traits.get(trait_ty).expect("")).collect::<Vec<_>>();
+        let inst_traits = requested_mock.traits.iter().map(|trait_ty| create_instantiated_traits(trait_ty, &mockable_traits)).collect::<Vec<_>>();
         tokens.extend(handle_generate_mock(mock_type_name, &requested_mock.attributes, &inst_traits, &given_statements, &expect_statements));
     }
 
@@ -46,41 +42,28 @@ pub fn handle_generate_mocks() -> Vec<quote::Tokens> {
     tokens
 }
 
-fn collect_instantiated_traits(requested_traits: &[syn::Path], mockable_traits: &MockableTraits, mocked_trait_unifier: &MockedTraitUnifier)
-                               -> HashMap<syn::Path, InstantiatedTrait> {
+fn create_instantiated_traits(trait_path: &syn::Path, mockable_traits: &MockableTraits)
+                               -> InstantiatedTrait {
+    let trait_info = mockable_traits
+                     .get(&strip_generics(trait_path.clone()))
+                     .expect(&format!("All mocked traits must be defined using 'mockable!': `{}` not found in {}",
+                                      quote!(#trait_path).to_string(),
+                                      mockable_traits.keys().map(|k| quote!(#k).to_string()).collect::<Vec<_>>().join(", ")));
+    let mut mapper = TypeParamMapper::new();
+    {
+        let generics: &syn::Generics = &trait_info.generics;
+        let instantiated_params = extract_parameterized_types_from_trait_use(trait_path);
 
-    let mut instantiated_traits = HashMap::new();
-
-    for trait_path in requested_traits {
-        // if trait_path.segments.len() != 1 {
-        //     panic!("All mocked traits are supposed to be given without path by their name only.");
-        // }
-
-        let trait_info = mockable_traits
-                         .get(&strip_generics(trait_path.clone()))
-                         .expect(&format!("All mocked traits must be defined using 'mockable!': `{}` not found in {}",
-                                          quote!(#trait_path).to_string(),
-                                          mockable_traits.keys().map(|k| quote!(#k).to_string()).collect::<Vec<_>>().join(", ")));
-
-        let mut mapper = TypeParamMapper::new();
-        {
-            let generics: &syn::Generics = &trait_info.generics;
-            let instantiated_params = extract_parameterized_types_from_trait_use(trait_path);
-
-            for (param, instantiated) in generics.ty_params.iter().zip(instantiated_params) {
-                mapper.add_mapping(param.ident.clone(), instantiated);
-            }
+        for (param, instantiated) in generics.ty_params.iter().zip(instantiated_params) {
+            mapper.add_mapping(param.ident.clone(), instantiated);
         }
-
-        instantiated_traits.insert(trait_path.clone(), InstantiatedTrait {
-            unique_id: mocked_trait_unifier.get_unique_id_for(trait_path).expect(""),
-            trait_ty: trait_path.clone(),
-            info: trait_info.clone(),
-            mapper: mapper
-        });
     }
 
-    instantiated_traits
+    InstantiatedTrait {
+        trait_ty: trait_path.clone(),
+        info: trait_info.clone(),
+        mapper: mapper
+    }
 }
 
 fn strip_generics(mut path_with_generics: syn::Path) -> syn::Path {
@@ -105,7 +88,7 @@ fn strip_generics(mut path_with_generics: syn::Path) -> syn::Path {
 /// * `trait_tys` - The (generic) trait types which are requested for the mock
 fn handle_generate_mock(mock_type_name: &syn::Ident,
                         attributes: &[syn::Attribute],
-                        requested_traits: &[&InstantiatedTrait],
+                        requested_traits: &[InstantiatedTrait],
                         given_statements: &GivenStatements,
                         expect_statements: &ExpectStatements
                        ) -> Vec<quote::Tokens> {
@@ -161,27 +144,4 @@ pub struct InstantiatedTrait {
     trait_ty: syn::Path,
     info: TraitInfo,
     mapper: TypeParamMapper,
-    unique_id: usize
-}
-
-impl InstantiatedTrait {
-    pub fn given_behaviour_field_in_mock_for(&self, method_ident: &syn::Ident) -> syn::Ident {
-        syn::Ident::from(format!("given_behaviours_for_trait{}_{}", self.unique_id, method_ident))
-    }
-
-    pub fn given_behaviour_add_method_to_mock_for(&self, method_ident: &syn::Ident) -> syn::Ident {
-        syn::Ident::from(format!("add_given_behaviour_for_trait{}_{}", self.unique_id, method_ident))
-    }
-
-    pub fn behaviour_type_for(&self, method_ident: &syn::Ident) -> syn::Ident {
-        syn::Ident::from(format!("BehaviourTrait{}_{}", self.unique_id, method_ident))
-    }
-
-    pub fn expect_behaviour_field_in_mock_for(&self, method_ident: &syn::Ident) -> syn::Ident {
-        syn::Ident::from(format!("expect_behaviours_for_trait{}_{}", self.unique_id, method_ident))
-    }
-
-    pub fn expect_behaviour_add_method_to_mock_for(&self, method_ident: &syn::Ident) -> syn::Ident {
-        syn::Ident::from(format!("add_expect_behaviour_for_trait{}_{}", self.unique_id, method_ident))
-    }
 }

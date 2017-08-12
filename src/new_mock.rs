@@ -32,11 +32,6 @@ named!(parse_new_mock -> RequestedMock,
 pub fn handle_new_mock(source: &str, absolute_position: usize) -> (String, String) {
     if let IResult::Done(remainder, requested_mock) = parse_new_mock(source) {
         let mut requested_mocks = acquire!(REQUESTED_MOCKS);
-        let mut mocked_trait_unifier = acquire!(MOCKED_TRAIT_UNIFIER);
-
-        for trait_ty in requested_mock.traits.iter() {
-            mocked_trait_unifier.register_trait(trait_ty);
-        }
 
         let mock_type_name = gen_new_mock_type_name(absolute_position);
         requested_mocks.insert(mock_type_name.clone(), requested_mock);
