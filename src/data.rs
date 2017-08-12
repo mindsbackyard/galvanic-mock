@@ -1,17 +1,10 @@
 use syn;
-use quote;
-use std::collections::{HashMap, BTreeMap};
-use std::sync::{Arc, Mutex};
-
-pub type ItemTokens = quote::Tokens;
-pub type ImplTokens = quote::Tokens;
+use std::collections::HashMap;
+use std::sync::Mutex;
 
 pub type TypeName = syn::Ident;
-pub type MockTypeName = syn::Ident;
 pub type VarName = syn::Ident;
-pub type TraitIdx = usize;
 pub type MethodName = syn::Ident;
-pub type Args = Vec<syn::Expr>;
 
 #[derive(Debug, Clone)]
 pub struct TraitInfo {

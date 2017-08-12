@@ -1,7 +1,7 @@
 #![feature(proc_macro)]
 #![recursion_limit = "128"]
 
-#[macro_use] mod util;
+#[macro_use] mod acquire;
 mod new_mock;
 mod given;
 mod expect;
@@ -19,7 +19,6 @@ extern crate syn;
 extern crate galvanic_assert;
 
 use proc_macro::TokenStream;
-use syn::parse::IResult;
 
 use new_mock::handle_new_mock;
 use given::handle_given;
@@ -90,17 +89,16 @@ pub fn mockable(args: TokenStream, input: TokenStream) -> TokenStream {
 
 
 #[proc_macro_attribute]
-pub fn use_mocks(args: TokenStream, input: TokenStream) -> TokenStream {
+pub fn use_mocks(_: TokenStream, input: TokenStream) -> TokenStream {
     use MacroInvocationPos::*;
 
     // to parse the macros related to mock ussage the function is converted to string form
     let mut reassembled = String::new();
     let parsed = syn::parse_item(&input.to_string()).unwrap();
     let mut remainder = quote!(#parsed).to_string();
-    let mut left: String;
 
     // parse one macro a time then search for the next macro in the remaining string
-    let absolute_pos = 0;
+    let mut absolute_pos = 0;
     while !remainder.is_empty() {
 
         match find_next_mock_macro_invocation(&remainder) {
@@ -109,12 +107,13 @@ pub fn use_mocks(args: TokenStream, input: TokenStream) -> TokenStream {
                 remainder = String::new();
             },
             Some(invocation) => {
-                let (left, absolute_pos, right) = match invocation {
+                let (left, new_absolute_pos, right) = match invocation {
                     NewMock(pos) => handle_macro(&remainder, pos, absolute_pos, handle_new_mock),
                     Given(pos) => handle_macro(&remainder, pos, absolute_pos, handle_given),
                     ExpectInteractions(pos) => handle_macro(&remainder, pos, absolute_pos, handle_expect_interactions),
                 };
 
+                absolute_pos = new_absolute_pos;
                 reassembled.push_str(&left);
                 remainder = right;
             }

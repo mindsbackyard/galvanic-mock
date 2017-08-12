@@ -1,10 +1,9 @@
 use syn;
 use syn::parse::*;
-use data::*;
-use std::collections::{HashMap, HashSet};
 
-use generate::mock_struct_implementer::MockStructImplementer;
-use generate::binding_implementer::{binding_name_for, implement_bindings, implement_initialize_binding};
+use data::*;
+use generate::binding_implementer::implement_initialize_binding;
+
 
 named!(pub parse_bind -> BindingField,
     do_parse!(
@@ -25,11 +24,11 @@ named!(parse_given_func -> (syn::Ident, BehaviourMatcher, Return, GivenRepeat),
                          | preceded!(keyword!("then_return_from"), syn::parse::expr) => { |e| Return::FromCall(e) }
                          | preceded!(keyword!("then_return_ref"), syn::parse::expr) => { |e| Return::FromValue(e) }
                          | preceded!(keyword!("then_return_ref_from"), syn::parse::expr) => { |e| Return::FromCall(e) }
-                         | keyword!("then_spy_on_object") => { |e| Return::FromSpy }
-                         | keyword!("then_panic") => { |e| Return::Panic }
+                         | keyword!("then_spy_on_object") => { |_| Return::FromSpy }
+                         | keyword!("then_panic") => { |_| Return::Panic }
         ) >>
         repeat: alt!( preceded!(keyword!("times"), syn::parse::expr) => { |e| GivenRepeat::Times(e) }
-                    | keyword!("always") => { |e| GivenRepeat::Always }
+                    | keyword!("always") => { |_| GivenRepeat::Always }
         ) >>
         (method, args, return_stmt, repeat)
     )

@@ -6,8 +6,6 @@ use std;
 
 use super::InstantiatedTrait;
 use super::typed_arguments_for_method_sig;
-use super::type_param_mapper::*;
-use super::mock_struct_implementer::*;
 use super::behaviour::*;
 use data::*;
 
@@ -95,20 +93,16 @@ impl<'a> TraitImplementer<'a> {
             signature.generics.where_clause.to_tokens(&mut tokens);
             tokens.append("{");
 
-            if let syn::FunctionRetTy::Ty(ref return_ty) = signature.decl.output {
+            if let syn::FunctionRetTy::Ty(_) = signature.decl.output {
                 let args = self.generate_argument_names(&signature.decl.inputs);
-
-                let return_value = syn::Ident::from("return_value");
-                let behaviour_idx = syn::Ident::from("idx");
-                let maybe_remove_idx = syn::Ident::from("maybe_remove_idx");
 
                 let given_behaviour_impls = self.given_statements.iter()
                                                 .filter(|stmt| stmt.method == item.ident)
-                                                .map(|stmt| implement_given_behaviour_matcher(stmt, &self.instantiated_trait))
+                                                .map(|stmt| implement_given_behaviour_matcher(stmt))
                                                 .collect::<Vec<_>>();
                 let expect_behaviour_impls = self.expect_statements.iter()
                                                 .filter(|stmt| stmt.method == item.ident)
-                                                .map(|stmt| implement_expect_behaviour_matcher(stmt, &self.instantiated_trait))
+                                                .map(|stmt| implement_expect_behaviour_matcher(stmt))
                                                 .collect::<Vec<_>>();
 
                 let trait_ty = &self.instantiated_trait.trait_ty;
@@ -123,23 +117,23 @@ impl<'a> TraitImplementer<'a> {
                         )*
                     }
 
-                    let mut #maybe_remove_idx = None;
-                    let mut #return_value = None;
+                    let mut maybe_remove_idx = None;
+                    let mut return_value = None;
                     let mut all_given_behaviours_ref = self.given_behaviours.borrow_mut();
                     let given_behaviours = all_given_behaviours_ref.entry((#trait_name, #method_name)).or_insert_with(|| Vec::new());
-                    for (#behaviour_idx, behaviour) in given_behaviours.iter().enumerate() {
+                    for (idx, behaviour) in given_behaviours.iter().enumerate() {
                         #(
                             #given_behaviour_impls
                         )*
                     }
 
-                    if let Some(idx) = #maybe_remove_idx {
+                    if let Some(idx) = maybe_remove_idx {
                         if (&given_behaviours[idx] as &GivenBehaviour).is_saturated() {
                             given_behaviours.remove(idx);
                         }
                     }
 
-                    if let Some(value) = #return_value {
+                    if let Some(value) = return_value {
                         return value;
                     }
                     panic!("No matching given! statement found among the remaining ones: {}",

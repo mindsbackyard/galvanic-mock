@@ -1,13 +1,11 @@
 pub mod binding_implementer;
-pub mod type_param_mapper;
-pub mod mock_struct_implementer;
-pub mod trait_implementer;
+mod type_param_mapper;
+mod mock_struct_implementer;
+mod trait_implementer;
 mod behaviour;
 
 use syn;
 use quote;
-
-use std::collections::HashMap;
 
 use ::generate::binding_implementer::*;
 use ::generate::behaviour::*;
@@ -15,7 +13,6 @@ use ::generate::type_param_mapper::*;
 use ::generate::mock_struct_implementer::*;
 use ::generate::trait_implementer::*;
 use data::*;
-use util::type_name_of;
 
 /// Generates all mock structs and implementations.
 pub fn handle_generate_mocks() -> Vec<quote::Tokens> {
@@ -92,7 +89,7 @@ fn handle_generate_mock(mock_type_name: &syn::Ident,
                         given_statements: &GivenStatements,
                         expect_statements: &ExpectStatements
                        ) -> Vec<quote::Tokens> {
-    let mock_implementer = MockStructImplementer::for_(mock_type_name, attributes, requested_traits);
+    let mock_implementer = MockStructImplementer::for_(mock_type_name, attributes);
     let mut mock = mock_implementer.implement();
 
     let empty_given = Vec::new();

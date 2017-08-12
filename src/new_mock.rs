@@ -1,9 +1,6 @@
 use syn;
-
 use syn::parse::IResult;
-
 use data::*;
-use util::gen_new_mock_type_name;
 
 named!(comma_separated_types -> Vec<syn::Path>,
     separated_nonempty_list!(punct!(","), syn::parse::path)
@@ -33,7 +30,7 @@ pub fn handle_new_mock(source: &str, absolute_position: usize) -> (String, Strin
     if let IResult::Done(remainder, requested_mock) = parse_new_mock(source) {
         let mut requested_mocks = acquire!(REQUESTED_MOCKS);
 
-        let mock_type_name = gen_new_mock_type_name(absolute_position);
+        let mock_type_name = syn::Ident::from(format!("Mock{}", absolute_position));
         requested_mocks.insert(mock_type_name.clone(), requested_mock);
 
         let assignment_stmt = quote! { #mock_type_name::new(); };

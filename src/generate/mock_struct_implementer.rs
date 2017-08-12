@@ -1,10 +1,5 @@
 use syn;
 use quote;
-use std::collections::HashMap;
-
-use super::binding_implementer::binding_name_for;
-use data::*;
-use super::InstantiatedTrait;
 
 /// Generates mock structs and implementations.
 pub struct MockStructImplementer<'a> {
@@ -12,8 +7,6 @@ pub struct MockStructImplementer<'a> {
     mock_type_name: &'a syn::Ident,
     /// The attributes which should be applied to the generated mock
     attributes: &'a [syn::Attribute],
-    /// The traits which shall be implemented for the mock
-    instantiated_traits: &'a [InstantiatedTrait],
 }
 
 impl<'a> MockStructImplementer<'a> {
@@ -23,8 +16,8 @@ impl<'a> MockStructImplementer<'a> {
     /// * `mock_type_name` - The name of the new struct
     /// * `requested_trait_types` - The traits which shall be implemented for the mock
     /// * `trait_infos` - A `TraitInfo` for each requested trait in the same order
-    pub fn for_(mock_type_name: &'a syn::Ident, attributes: &'a [syn::Attribute], instantiated_traits: &'a [InstantiatedTrait]) -> Self {
-        MockStructImplementer { mock_type_name, attributes, instantiated_traits }
+    pub fn for_(mock_type_name: &'a syn::Ident, attributes: &'a [syn::Attribute]) -> Self {
+        MockStructImplementer { mock_type_name, attributes }
     }
 
     /// Generate the struct definition of the mock and the methods for creating/interacting with the mock.

@@ -1,10 +1,8 @@
 use syn;
 use syn::parse::*;
-use data::*;
-use std::collections::{HashMap, HashSet};
 
-use generate::mock_struct_implementer::MockStructImplementer;
-use generate::binding_implementer::{binding_name_for, implement_bindings, implement_initialize_binding};
+use data::*;
+use generate::binding_implementer::implement_initialize_binding;
 
 named!(pub parse_bind -> BindingField,
     do_parse!(
@@ -26,7 +24,7 @@ named!(pub parse_expect_interaction -> ExpectStatement,
                     | preceded!(keyword!("at_least"), syn::parse::expr) => { |e| ExpectRepeat::AtLeast(e) }
                     | preceded!(keyword!("at_most"), syn::parse::expr) => { |e| ExpectRepeat::AtMost(e) }
                     | preceded!(keyword!("between"), tuple!( call!(syn::parse::expr), preceded!(punct!(","), syn::parse::expr) )) => { |(e1, e2)| ExpectRepeat::Between(e1, e2) }
-                    | keyword!("never") => { |e| ExpectRepeat::Times(syn::parse::expr("0").expect("")) }
+                    | keyword!("never") => { |_| ExpectRepeat::Times(syn::parse::expr("0").expect("")) }
         ) >>
         (ExpectStatement {
             block_id: 0,

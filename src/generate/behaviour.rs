@@ -58,7 +58,7 @@ pub fn implement_given_behaviour() -> Vec<quote::Tokens> {
     vec![behaviour_item, behaviour_impl]
 }
 
-pub fn implement_given_behaviour_matcher(statement: &GivenStatement, instantiated_trait: &InstantiatedTrait) -> quote::Tokens {
+pub fn implement_given_behaviour_matcher(statement: &GivenStatement) -> quote::Tokens {
     let return_expr = match &statement.return_stmt {
         &Return::FromValue(ref expr) => quote!{ #expr },
         &Return::FromCall(ref expr) => quote!{ (#expr)(&curried_args) },
@@ -189,7 +189,7 @@ pub fn implement_expect_behaviour() -> Vec<quote::Tokens> {
     vec![behaviour_item, behaviour_impl]
 }
 
-pub fn implement_expect_behaviour_matcher(statement: &ExpectStatement, instantiated_trait: &InstantiatedTrait) -> quote::Tokens {
+pub fn implement_expect_behaviour_matcher(statement: &ExpectStatement) -> quote::Tokens {
     let match_expr = match statement.matcher {
         BehaviourMatcher::Explicit(ref expr) => quote!{ (#expr)(&curried_args) },
         BehaviourMatcher::PerArgument(ref exprs) => {
