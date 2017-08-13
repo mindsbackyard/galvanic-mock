@@ -1,3 +1,17 @@
+/* Copyright 2017 Christopher Bacher
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 use syn;
 use quote;
 
@@ -11,11 +25,6 @@ pub struct MockStructImplementer<'a> {
 
 impl<'a> MockStructImplementer<'a> {
     /// Create a new mock struct.
-    ///
-    /// # Paramaters
-    /// * `mock_type_name` - The name of the new struct
-    /// * `requested_trait_types` - The traits which shall be implemented for the mock
-    /// * `trait_infos` - A `TraitInfo` for each requested trait in the same order
     pub fn for_(mock_type_name: &'a syn::Ident, attributes: &'a [syn::Attribute]) -> Self {
         MockStructImplementer { mock_type_name, attributes }
     }

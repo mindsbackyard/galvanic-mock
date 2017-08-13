@@ -1,3 +1,17 @@
+/* Copyright 2017 Christopher Bacher
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 use syn;
 use quote;
 use quote::ToTokens;
@@ -44,8 +58,6 @@ impl<'a> TraitImplementer<'a> {
         let bindings = TraitImplementer::extract_associated_types(&mut trait_ty, lifetimes);
         let assoc_types = bindings.into_iter().map(|syn::TypeBinding{ref ident, ref ty}| quote!(#ident = #ty)).collect::<Vec<_>>();
 
-        // all generic type parameters need to be bound so only lifetimes must be provided
-        //TODO add #lifetimes and bind lifetimes into trait_ty, maybe provide lifetime for mock_type_name
         quote! {
             impl<#(#lifetime_defs),*> #trait_ty for #mock_type_name{
                 #(type #assoc_types;)*
@@ -162,70 +174,4 @@ impl<'a> TraitImplementer<'a> {
         }
         arg_names
     }
-
-    // fn implement_given_block(&self, block: &GivenBlockInfo, func_args: &[syn::Ident]) -> quote::Tokens {
-    //     let bound_field = MockStructImplementer::bound_field_for(block.block_id);
-    //     let activated_field = MockStructImplementer::given_block_activated_field_for(block.block_id);
-    //
-    //     let mut behaviours = Vec::new();
-    //     for stmt in &block.given_statements {
-    //         let behaviour_field = MockStructImplementer::behaviour_field_for(block.block_id, stmt.stmt_id);
-    //         let match_expr = match stmt.matcher {
-    //             BehaviourMatcher::Explicit(ref expr) => {
-    //                 quote!{ (#expr)(#(&#func_args),*) }
-    //             },
-    //             BehaviourMatcher::PerArgument(ref exprs) => {
-    //                 let mut arg_tokens = quote::Tokens::new();
-    //                 arg_tokens.append("(");
-    //                 for idx in 0..func_args.len() {
-    //                     if idx >= 1 {
-    //                         arg_tokens.append("&&");
-    //                     }
-    //                     let expr = exprs.get(idx).unwrap();
-    //                     arg_tokens.append(quote!((#expr)));
-    //                     let arg = func_args.get(idx).unwrap();
-    //                     arg_tokens.append(quote!((&#arg)));
-    //                 }
-    //                 arg_tokens.append(")");
-    //                 arg_tokens
-    //             }
-    //         };
-    //
-    //         let return_expr = match &stmt.return_stmt {
-    //             &Return::FromValue(ref expr) => quote!{ return #expr },
-    //             &Return::FromCall(ref expr) => quote!{ return (#expr)(#(&#func_args),*) },
-    //             &Return::FromSpy => panic!("return_from_spy is not implemented yet."),
-    //             &Return::Panic => quote!{ panic!("Don't forget the towel.") }
-    //         };
-    //
-    //         let behaviour = match stmt.repeat {
-    //             Repeat::Always => quote! {
-    //                 if #match_expr.into() {
-    //                     #return_expr;
-    //                 }
-    //             },
-    //             Repeat::Times(..) => {
-    //                 let err_msg = "Number of matches for `given` matches has been limited but limit has not been set. This is most likely an error in the library.";
-    //                 quote! {
-    //                     let (num_matches, maybe_match_limit) = self.#behaviour_field.get();
-    //                     let match_limit = maybe_match_limit.expect(#err_msg);
-    //                     if num_matches < match_limit && #match_expr.into() {
-    //                         self.#behaviour_field.set((num_matches+1, bound));
-    //                         #return_expr;
-    //                     }
-    //                 }
-    //             }
-    //         };
-    //         behaviours.push(behaviour);
-    //     }
-    //
-    //     let blocked_behaviours = quote! {
-    //         if self.#activated_field.get() {
-    //             let bound = &self.#bound_field;
-    //             #(#behaviours)*
-    //         }
-    //     };
-    //
-    //     blocked_behaviours
-    // }
 }
