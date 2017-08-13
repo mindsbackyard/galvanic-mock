@@ -377,7 +377,7 @@ That also means if a given block is entered multiple times the bind statements w
 
 #### Behaviours for generic trait methods
 
-Be careful when you try to mock *generic methods*, e.g.
+Be careful when you try to mock *generic methods* as below.
 ```Rust
 #[mockable]
 trait MyTrait {
