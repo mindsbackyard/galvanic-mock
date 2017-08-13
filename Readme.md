@@ -1,4 +1,5 @@
 # Galvanic-mock: behaviour-driven mocking for generic traits
+[![Build Status](https://travis-ci.org/mindsbackyard/galvanic-mock.svg?branch=master)](https://travis-ci.org/mindsbackyard/galvanic-mock)
 
 This crate provides procedural macros (`#[mockable]`, `#[use_mocks]`) for mocking the behaviour of traits.
 
