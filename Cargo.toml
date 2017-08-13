@@ -3,6 +3,24 @@ name = "galvanic-mock"
 version = "0.1.0"
 authors = ["Christopher Bacher <mindsbackyard@gmail.com>"]
 
+description = """A behaviour-driven mocking framework for generic traits.
+
+Create mocks for (multiple) traits in a behaviour-driven development mocking framework.
+Define the behaviour of mocks and expected method calls using argument patterns.
+Supports mocking of generic traits and generic methods.
+Requires: nightly"""
+
+homepage = "https://github.com/mindsbackyard/galvanic-mock"
+repository = "https://github.com/mindsbackyard/galvanic-mock"
+documentation = "https://github.com/mindsbackyard/galvanic-mock"
+
+readme = "Readme.md"
+
+license = "Apache-2.0"
+
+keywords = ["test", "mocking", "TDD", "BDD"]
+categories = ["development-tools::testing"]
+
 [dependencies]
 synom = "0.11"
 quote = "0.3"
@@ -19,3 +37,4 @@ galvanic-assert = "0.8"
 proc-macro = true
 
 [badges]
+travis-ci = { repository = "mindsbackyard/galvanic-mock" }

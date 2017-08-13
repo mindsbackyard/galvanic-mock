@@ -1,5 +1,6 @@
 # Galvanic-mock: behaviour-driven mocking for generic traits
 [![Build Status](https://travis-ci.org/mindsbackyard/galvanic-mock.svg?branch=master)](https://travis-ci.org/mindsbackyard/galvanic-mock)
+[![Crates.io](https://img.shields.io/crates/v/galvanic-mock.svg)](https://crates.io/crates/galvanic-mock)
 
 This crate provides procedural macros (`#[mockable]`, `#[use_mocks]`) for mocking the behaviour of traits.
 
@@ -129,7 +130,7 @@ To use the mocking library make sure that you use a **nightly** version of Rust 
 Add the dependency to your `Cargo.toml` preferably as a dev dependency.
 ```toml
 [dev-dependencies]
-galvanic-mock = "*" // galvanic uses `semver` versioning
+galvanic-mock = "*" # galvanic uses `semver` versioning
 ```
 
 At the root of your crate (either `main.rs` or `lib.rs`) add the following to activate the required features and to import the macros.
