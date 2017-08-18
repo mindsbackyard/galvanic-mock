@@ -14,37 +14,37 @@
  */
 #![feature(proc_macro)]
 extern crate galvanic_mock;
+#[allow(unused_imports)] use galvanic_mock::{mockable, use_mocks};
 extern crate galvanic_assert;
-use galvanic_mock::{mockable, use_mocks};
+#[allow(unused_imports)]  use galvanic_assert::matchers::*;
 
 #[mockable]
 trait TestTrait {
-    fn func(&self, x: i32) -> i32;
+    fn func(&self, x: i32, y: f64) -> i32;
 }
 
+#[cfg(feature = "galvanic_assert_integration")]
 #[test]
 #[use_mocks]
-fn test_then_return_from() {
+fn test_per_argument_matcher_with_galvanic_assert_matchers() {
     let mock = new_mock!(TestTrait);
 
     given! {
-        <mock as TestTrait>::func |_| true then_return_from |&(a,)| a*2 always;
+        <mock as TestTrait>::func(lt(2), gt(3.3)) then_return 12 always;
     }
 
-    assert_eq!(mock.func(1), 2);
-    assert_eq!(mock.func(2), 4);
+    assert_eq!(mock.func(1, 4.4), 12);
 }
 
-
+#[cfg(feature = "galvanic_assert_integration")]
 #[test]
-#[should_panic]
 #[use_mocks]
-fn test_then_panic() {
+fn test_explicit_matcher_with_galvanic_assert_matcher() {
     let mock = new_mock!(TestTrait);
 
     given! {
-        <mock as TestTrait>::func |&(a,)| a < 2 then_panic always;
+        <mock as TestTrait>::func eq((2, 3.3)) then_return 12 always;
     }
 
-    mock.func(1);
+    assert_eq!(mock.func(2, 3.3), 12);
 }

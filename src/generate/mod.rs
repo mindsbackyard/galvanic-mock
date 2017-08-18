@@ -37,6 +37,7 @@ pub fn handle_generate_mocks() -> Vec<quote::Tokens> {
     let mut bindings = acquire!(BINDINGS);
 
     let mut tokens = implement_bindings(&bindings);
+    tokens.extend(implement_argmatcher());
     tokens.extend(implement_given_behaviour());
     tokens.extend(implement_expect_behaviour());
 
@@ -128,6 +129,35 @@ fn extract_parameterized_types_from_trait_use(trait_ty: &syn::Path) -> Vec<syn::
         syn::PathParameters::AngleBracketed(ref data) => data.types.clone(),
         _ => panic!("Type parameter extraction only works for angle-bracketed types.")
     }
+}
+
+fn implement_argmatcher() -> Vec<quote::Tokens> {
+    let argmatcher_trait = quote! {
+        pub trait ArgMatcher<'a, T:'a> {
+            fn match_args(&self, actual: &'a T) -> bool;
+        }
+    };
+
+    let argmatcher_impl = quote! {
+        impl<'a, T:'a, F> ArgMatcher<'a,T> for F
+        where F: Fn(&'a T) -> bool {
+            fn match_args(&self, actual: &'a T) -> bool {
+                self(actual)
+            }
+        }
+    };
+
+    if cfg!(feature = "galvanic_assert_integration") {
+        let matcher_argmatcher_impl = quote! {
+            impl<'a, T:'a> ArgMatcher<'a,T> for Box<::galvanic_assert::Matcher<'a, T> + 'a> {
+                fn match_args(&self, actual: &'a T) -> bool {
+                    self.check(actual).into()
+                }
+            }
+        };
+
+        vec![argmatcher_trait, argmatcher_impl, matcher_argmatcher_impl]
+    } else { vec![argmatcher_trait, argmatcher_impl] }
 }
 
 pub fn typed_arguments_for_method_sig(signature: &syn::MethodSig, mapper: &TypeParamMapper) -> Vec<quote::Tokens> {

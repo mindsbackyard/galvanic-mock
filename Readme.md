@@ -10,6 +10,7 @@ This crate provides procedural macros (`#[mockable]`, `#[use_mocks]`) for mockin
  * mock **generic traits** and **traits with associated types**
  * mock **generic trait methods**
  * apply **#[derive(..)]** and other attributes to your mocks
+ * **galvanic-assert** matchers like `eq`, `lt`, ... can be used in behaviours
  * integrate with **galvanic-test** (in development) and **galvanic-assert**
  * be used with your favourite test framework
 
@@ -74,6 +75,10 @@ The example below illustrates these concepts.
 extern crate galvanic_mock;
 use galvanic_mock::{mockable, use_mocks};
 
+// matchers from galvanic_assert can be used as argument matchers
+extern crate galvanic_assert;
+use galvanic_assert::matchers::{gt, leq, any_value};
+
 #[mockable]
 trait MyTrait {
     fn foo(&self, x: i32, y: i32) -> i32;
@@ -96,8 +101,8 @@ fn simple_use_of_mocks() {
         // instead of repeating the trait over and over, you can open a block
         <mock as MyTrait>::{
             // this behaviour will match only twice
-            foo |_| true then_return_from |_| 7 times 2;
-            foo |&(x,_)| x > 12 then_return 2 always;
+            foo any_value() then_return_from |_| 7 times 2;
+            foo(gt(12), any_value()) then_return 2 always;
         };
         // for generic traits all generic types and associated types need to be given
         <mock as MyOtherTrait<String>>::bar(|x| x == "hugo") then_return "got hugo".to_string() always;
@@ -106,10 +111,10 @@ fn simple_use_of_mocks() {
     // expectations are matched top-down, but will never be exhausted
     expect_interactions! {
         // `times` expects an exact number of matching interactions
-        <mock as MyTrait>::bar |_| true times 1;
+        <mock as MyOtherTrait<String>>::bar any_value() times 1;
         // besides `times`, also `at_least`, `at_most`, `between`, and `never` are supported
         // all limits are inclusive
-        <mock as MyOtherTrait<String>>::foo |&(_,y)| y <= 2 between 2,5;
+        <mock as MyTrait>::foo(any_value(), leq(2)) between 2,5;
     }
 
     assert_eq!(mock.foo(15, 1), 7);
@@ -141,6 +146,14 @@ extern crate galvanic_mock;
 // are actually used, or reimported.
 use galvanic_mock::{mockable, use_mocks};
 ```
+
+If we want to use `galvanic-assert` matchers in mocks then we have to enable the `galvanic_assert_integration` feature as follows.
+```toml
+[dev-dependencies]
+galvanic-mock = { version = "*", features = ["galvanic_assert_integration"] }
+galvanic-assert = "*" # galvanic-assert uses semver versioning too. To find the version required by `galvanic-mock` check version of the optional dependency in the manifest `Cargo.toml`.
+```
+If the integration feature is enabled, `extern crate galvanic_assert` has to be specified along with `extern crate galvanic_mock` or the library will fail to compile (even if no `galvanic_assert` matchers are used).
 
 ### Defining mockable traits with `#[mockable]`
 
@@ -290,7 +303,7 @@ Note that the semicolon at the end of the block is *not optional*.
 
 #### Argument patterns
 
-Precondtions on the method arguments can be defined in two forms: **per-argument** and **explicit**.
+Preconditions on the method arguments can be defined in two forms: **per-argument** and **explicit**.
 Most of the time per-argument patterns will be enough and are considered more readable.
 ```Rust
 given! {
@@ -300,6 +313,9 @@ given! {
 The argument matchers follow the closure syntax and its parameters are passed *by immutable reference* and must return a `bool` or something that implements `std::convert::Into<bool>`.
 Although we use closure syntax, **this is not a closure** meaning that you can't capture variables from the scope outside the given block.
 We will learn later how we can **bind** values from the outer scope to make them available to the given statements.
+
+If the `galvanic_assert_integration` feature is enabled then the matchers from `galvanic-assert` can be used instead of the closure syntax.
+See the introduction for some examples
 
 The second form receives all arguments at once in a tuple.
 ```Rust

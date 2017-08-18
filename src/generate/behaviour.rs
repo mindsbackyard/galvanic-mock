@@ -81,7 +81,7 @@ pub fn implement_given_behaviour_matcher(statement: &GivenStatement) -> quote::T
     };
 
     let match_expr = match statement.matcher {
-        BehaviourMatcher::Explicit(ref expr) => quote!{ (#expr)(&curried_args) },
+        BehaviourMatcher::Explicit(ref expr) => quote!{ (#expr).match_args(&curried_args) },
         BehaviourMatcher::PerArgument(ref exprs) => {
             let mut arg_tokens = quote::Tokens::new();
             arg_tokens.append("(");
@@ -91,7 +91,7 @@ pub fn implement_given_behaviour_matcher(statement: &GivenStatement) -> quote::T
                 }
                 let expr = exprs.get(idx).unwrap();
                 arg_tokens.append(quote!( (#expr) ));
-                arg_tokens.append(format!("(&curried_args.{})", idx));
+                arg_tokens.append(format!(".match_args(&curried_args.{})", idx));
             }
             arg_tokens.append(")");
             arg_tokens
@@ -205,7 +205,7 @@ pub fn implement_expect_behaviour() -> Vec<quote::Tokens> {
 
 pub fn implement_expect_behaviour_matcher(statement: &ExpectStatement) -> quote::Tokens {
     let match_expr = match statement.matcher {
-        BehaviourMatcher::Explicit(ref expr) => quote!{ (#expr)(&curried_args) },
+        BehaviourMatcher::Explicit(ref expr) => quote!{ (#expr).match_args(&curried_args) },
         BehaviourMatcher::PerArgument(ref exprs) => {
             let mut arg_tokens = quote::Tokens::new();
             arg_tokens.append("(");
@@ -215,7 +215,7 @@ pub fn implement_expect_behaviour_matcher(statement: &ExpectStatement) -> quote:
                 }
                 let expr = exprs.get(idx).unwrap();
                 arg_tokens.append(quote!( (#expr) ));
-                arg_tokens.append(format!("(&curried_args.{})", idx));
+                arg_tokens.append(format!(".match_args(&curried_args.{})", idx));
             }
             arg_tokens.append(")");
             arg_tokens

@@ -25,6 +25,7 @@ categories = ["development-tools::testing"]
 synom = "0.11"
 quote = "0.3"
 lazy_static = "0.2"
+galvanic-assert = { version = "0.8", optional = true}
 
 [dependencies.syn]
 version = "0.11"
@@ -35,6 +36,9 @@ galvanic-assert = "0.8"
 
 [lib]
 proc-macro = true
+
+[features]
+galvanic_assert_integration = ["galvanic-assert"]
 
 [badges]
 travis-ci = { repository = "mindsbackyard/galvanic-mock" }

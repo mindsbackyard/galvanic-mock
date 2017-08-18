@@ -14,6 +14,7 @@
  */
 #![feature(proc_macro)]
 extern crate galvanic_mock;
+extern crate galvanic_assert;
 
 mod sub1 {
     pub mod sub2 {
