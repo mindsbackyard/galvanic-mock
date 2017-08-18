@@ -148,7 +148,6 @@ pub fn handle_given(source: &str, absolute_position: usize) -> (String, String) 
 mod test {
     use galvanic_assert::*;
     use galvanic_assert::matchers::*;
-    use galvanic_assert::matchers::variant::*;
 
     mod parsers {
         use super::*;
