@@ -160,7 +160,7 @@ pub fn use_mocks(_: TokenStream, input: TokenStream) -> TokenStream {
 
             #mock_using_item
 
-            pub(crate) mod mock {
+            pub(in self) mod mock {
                 use std;
                 use super::*;
 

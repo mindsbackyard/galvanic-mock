@@ -27,34 +27,37 @@ trait TestTrait {
 mod test_module1 {
     use super::TestTrait;
 
-    #[test]
-    fn test_in_annotated_module() {
-        let mock = new_mock!(TestTrait);
+    fn create_mock() -> mock::MyMock {
+        let mock = new_mock!(TestTrait for MyMock);
 
         given! {
-            <mock as TestTrait>::func |_| true then_return 12 always;
+            <mock as TestTrait>::func |_| true then_return 12 times 1;
+        }
+
+        mock
+    }
+
+    #[test]
+    fn use_of_mock_factory_1() {
+        let mock = create_mock();
+
+        given! {
+            <mock as TestTrait>::func |_| true then_return 1 always;
         }
 
         assert_eq!(mock.func(1), 12);
+        assert_eq!(mock.func(1), 1);
     }
-}
 
-#[use_mocks]
-mod test_module2 {
-    use super::TestTrait;
+    #[test]
+    fn use_of_mock_factory_2() {
+        let mock = create_mock();
 
-    mod sub1 {
-        mod sub2 {
-            #[test]
-            fn test_in_submodules_of_annotated_module() {
-                let mock = new_mock!(TestTrait);
-
-                given! {
-                    <mock as TestTrait>::func |_| true then_return 12 always;
-                }
-
-                assert_eq!(mock.func(1), 12);
-            }
+        given! {
+            <mock as TestTrait>::func |_| true then_return 2 always;
         }
+
+        assert_eq!(mock.func(1), 12);
+        assert_eq!(mock.func(1), 2);
     }
 }

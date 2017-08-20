@@ -34,18 +34,22 @@ named!(parse_new_mock -> RequestedMock,
         do_parse!(keyword!("new_mock") >> punct!("!") >> punct!("(") >>
                   traits: call!(comma_separated_types) >>
                   attributes: many0!(outer_attr) >>
+                  maybe_type_name: option!(preceded!(keyword!("for"), syn::parse::ident)) >>
                   punct!(")") >>
-                  (RequestedMock { traits, attributes })
+                  (RequestedMock { traits, attributes, maybe_type_name })
         ), punct!(";")
     )
 );
 
 pub fn handle_new_mock(source: &str, absolute_position: usize) -> (String, String) {
-    if let IResult::Done(remainder, requested_mock) = parse_new_mock(source) {
+    if let IResult::Done(remainder, mut requested_mock) = parse_new_mock(source) {
         let mut requested_mocks = acquire!(REQUESTED_MOCKS);
 
-        let mock_type_name = syn::Ident::from(format!("Mock{}", absolute_position));
-        requested_mocks.insert(mock_type_name.clone(), requested_mock);
+        if requested_mock.maybe_type_name.is_none() {
+            requested_mock.maybe_type_name = Some(syn::Ident::from(format!("Mock{}", absolute_position)));
+        }
+        let mock_type_name = requested_mock.maybe_type_name.clone().unwrap();
+        requested_mocks.push(requested_mock);
 
         let assignment_stmt = quote! { mock::#mock_type_name::new(); };
         return (assignment_stmt.to_string(), remainder.to_string());

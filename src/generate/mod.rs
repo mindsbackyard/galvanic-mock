@@ -41,9 +41,13 @@ pub fn handle_generate_mocks() -> Vec<quote::Tokens> {
     tokens.extend(implement_given_behaviour());
     tokens.extend(implement_expect_behaviour());
 
-    for (mock_type_name, requested_mock) in requested_mocks.iter() {
+    for requested_mock in requested_mocks.iter() {
         let inst_traits = requested_mock.traits.iter().map(|trait_ty| create_instantiated_traits(trait_ty, &mockable_traits)).collect::<Vec<_>>();
-        tokens.extend(handle_generate_mock(mock_type_name, &requested_mock.attributes, &inst_traits, &given_statements, &expect_statements));
+        tokens.extend(handle_generate_mock(requested_mock.maybe_type_name.as_ref().expect("Internal error: requested mock has no type name"),
+                                           &requested_mock.attributes,
+                                           &inst_traits,
+                                           &given_statements,
+                                           &expect_statements));
     }
 
     bindings.clear();

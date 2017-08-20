@@ -52,11 +52,12 @@ lazy_static! {
 
 pub struct RequestedMock {
     pub traits: Vec<syn::Path>,
-    pub attributes: Vec<syn::Attribute>
+    pub attributes: Vec<syn::Attribute>,
+    pub maybe_type_name: Option<syn::Ident>
 }
 lazy_static! {
-    pub static ref REQUESTED_MOCKS: Mutex<HashMap<TypeName, RequestedMock>> = {
-        Mutex::new(HashMap::new())
+    pub static ref REQUESTED_MOCKS: Mutex<Vec<RequestedMock>> = {
+        Mutex::new(Vec::new())
     };
 }
 

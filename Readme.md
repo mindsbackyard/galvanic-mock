@@ -219,16 +219,33 @@ mod sub {
 
 ### Declaring mock usage with `#[use_mocks]`
 
-Any location where mocks should be use must be annotated with `#[use_mocks]`.
-The types of created mock objects are only visible to the annotated location.
-Currently only single functions are supported.
+Any location (`fn`, `mod`) where mocks should be use must be annotated with `#[use_mocks]`.
 ```Rust
+#[test]
 #[use_mocks]
 fn some_test {
     ...
 }
 ```
-The folloing macros can only be used within locations annotated with `#[use_mocks]`.
+
+If `#[use_mocks]` is applied to a module then the mock types are shared within all submodules and functions.
+```Rust
+#[use_mocks]
+mod test_module {
+    #[test]
+    fn some_test {
+        ...
+    }
+
+    #[test]
+    fn some_other_test {
+        ...
+    }
+}
+```
+Though never apply `#[use_mocks]` to an item within some other item which has already a `#[use_mocks]` attribute.
+
+The following macros can only be used within locations annotated with `#[use_mocks]`.
 
 ### Creating new mocks with `new_mock!`
 
@@ -251,6 +268,28 @@ fn some_test {
     ...
 }
 ```
+
+When the same mock setup code is shared across multiple tests we can place the mock creation code in a separate factory function, call it in the respective test cases, and modify it further (e.g. adding specific behaviours).
+To be able to do this we need to know the name of the created mock type.
+So far those types have been anonymous and a name has been chosen by the `new_mock!` command.
+It is possible to supply an explicit mock type name.
+```Rust
+#[use_mocks]
+mod test_module {
+    fn create_mock() -> mock::MyMockType {
+        new_mock!(MyTrait #[some_attribute] for MyMockType)
+        ... // define given/expec behaviours
+    }
+
+    #[test]
+    fn some_test {
+        let mock: mock::MyMockType = create_mock();
+        ... // define further test=specific given/expec behaviours
+    }
+}
+
+```
+The created type is placed in a `mock` module which is automatically visible to all (sub-)modules and functions within the item annotated with `#[use_mocks]`.
 
 ### Defining behaviour with `given!` blocks
 
@@ -281,7 +320,7 @@ The statement resembles [Universal Function Call Syntax](https://doc.rust-lang.o
 * `REPEAT` ... defines how often the behaviour can be matched before it becomes invalid
 
 When a method is invoked its given behaviours' preconditions are checked top-down and the first matching behaviour is selected.
-A given block is not a global definition and behaves as any other block/statement:
+A given block is *not* a global definition and behaves as any other block/statement:
 If the control flow never enters the block the behaviours won't be added to the mock object.
 If a block is entered multiple times or if another block is reached, then its behaviours are appended to the current list of behaviours.
 
