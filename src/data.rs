@@ -16,10 +16,6 @@ use syn;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-pub type TypeName = syn::Ident;
-pub type VarName = syn::Ident;
-pub type MethodName = syn::Ident;
-
 #[derive(Debug, Clone)]
 pub struct TraitInfo {
     pub safety: syn::Unsafety,
@@ -68,7 +64,7 @@ pub struct Binding {
 }
 
 pub struct BindingField {
-    pub name: VarName,
+    pub name: syn::Ident,
     pub ty: syn::Ty,
     pub initializer: syn::Expr
 }
@@ -107,7 +103,7 @@ pub struct GivenStatement {
     pub stmt_id: usize,
     pub mock_var: syn::Ident,
     pub ufc_trait: syn::Path,
-    pub method: MethodName,
+    pub method: syn::Ident,
     pub matcher: BehaviourMatcher,
     pub return_stmt: Return,
     pub repeat: GivenRepeat,
@@ -175,7 +171,7 @@ pub struct ExpectStatement {
     pub stmt_id: usize,
     pub mock_var: syn::Ident,
     pub ufc_trait: syn::Path,
-    pub method: MethodName,
+    pub method: syn::Ident,
     pub matcher: BehaviourMatcher,
     pub repeat: ExpectRepeat
 }
