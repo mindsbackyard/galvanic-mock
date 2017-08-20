@@ -80,10 +80,10 @@ pub fn handle_expect_interactions(source: &str, absolute_position: usize) -> (St
 
                 let stmt_repr = format!("{}", stmt);
                 add_statements.push(match &stmt.repeat {
-                    &ExpectRepeat::Times(ref expr) => quote!( #mock_var.add_expect_behaviour(#ufc_trait_name, #method_name, ExpectBehaviour::with_times(#expr, #stmt_id, binding.clone(), #stmt_repr)); ),
-                    &ExpectRepeat::AtLeast(ref expr) => quote!( #mock_var.add_expect_behaviour(#ufc_trait_name, #method_name, ExpectBehaviour::with_at_least(#expr, #stmt_id, binding.clone(), #stmt_repr)); ),
-                    &ExpectRepeat::AtMost(ref expr) => quote!( #mock_var.add_expect_behaviour(#ufc_trait_name, #method_name, ExpectBehaviour::with_at_most(#expr, #stmt_id, binding.clone(), #stmt_repr)); ),
-                    &ExpectRepeat::Between(ref expr_lower, ref expr_upper) => quote!( #mock_var.add_expect_behaviour(#ufc_trait_name, #method_name, ExpectBehaviour::with_between(#expr_lower, #expr_upper, #stmt_id, binding.clone(), #stmt_repr)); ),
+                    &ExpectRepeat::Times(ref expr) => quote!( #mock_var.add_expect_behaviour(#ufc_trait_name, #method_name, mock::ExpectBehaviour::with_times(#expr, #stmt_id, binding.clone(), #stmt_repr)); ),
+                    &ExpectRepeat::AtLeast(ref expr) => quote!( #mock_var.add_expect_behaviour(#ufc_trait_name, #method_name, mock::ExpectBehaviour::with_at_least(#expr, #stmt_id, binding.clone(), #stmt_repr)); ),
+                    &ExpectRepeat::AtMost(ref expr) => quote!( #mock_var.add_expect_behaviour(#ufc_trait_name, #method_name, mock::ExpectBehaviour::with_at_most(#expr, #stmt_id, binding.clone(), #stmt_repr)); ),
+                    &ExpectRepeat::Between(ref expr_lower, ref expr_upper) => quote!( #mock_var.add_expect_behaviour(#ufc_trait_name, #method_name, mock::ExpectBehaviour::with_between(#expr_lower, #expr_upper, #stmt_id, binding.clone(), #stmt_repr)); ),
                 });
             }
             statements.entry(stmt.ufc_trait.clone())

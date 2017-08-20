@@ -47,7 +47,7 @@ pub fn handle_new_mock(source: &str, absolute_position: usize) -> (String, Strin
         let mock_type_name = syn::Ident::from(format!("Mock{}", absolute_position));
         requested_mocks.insert(mock_type_name.clone(), requested_mock);
 
-        let assignment_stmt = quote! { #mock_type_name::new(); };
+        let assignment_stmt = quote! { mock::#mock_type_name::new(); };
         return (assignment_stmt.to_string(), remainder.to_string());
     }
 

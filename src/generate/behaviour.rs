@@ -20,7 +20,7 @@ use data::GivenStatement;
 
 pub fn implement_given_behaviour() -> Vec<quote::Tokens> {
     let behaviour_item = quote! {
-        struct GivenBehaviour {
+        pub(crate) struct GivenBehaviour {
             stmt_id: usize,
             num_matches: std::cell::Cell<usize>,
             expected_matches: Option<usize>,
@@ -123,7 +123,7 @@ pub fn implement_given_behaviour_matcher(statement: &GivenStatement) -> quote::T
 
 pub fn implement_expect_behaviour() -> Vec<quote::Tokens> {
     let behaviour_item = quote! {
-        struct ExpectBehaviour {
+        pub(crate) struct ExpectBehaviour {
             stmt_id: usize,
             num_matches: std::cell::Cell<usize>,
             expected_min_matches: Option<usize>,

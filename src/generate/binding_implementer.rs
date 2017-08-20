@@ -29,12 +29,12 @@ fn implement_binding(binding: &Binding) -> quote::Tokens {
     let fields = binding.fields.iter().map(|field| {
         let name = &field.name;
         let ty = &field.ty;
-        quote!(#name: #ty)
+        quote!(pub #name: #ty)
     }).collect::<Vec<_>>();
 
     quote!{
         #[derive(Clone)]
-        struct #binding_name {
+        pub(crate) struct #binding_name {
             #(#fields),*
         }
     }
@@ -49,7 +49,7 @@ pub fn implement_initialize_binding(binding: &Binding) -> quote::Tokens {
     }).collect::<Vec<_>>();
 
     quote!{
-        #binding_name {
+        mock::#binding_name {
             #(#field_initializers),*
         }
     }

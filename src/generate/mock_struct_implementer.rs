@@ -36,7 +36,7 @@ impl<'a> MockStructImplementer<'a> {
 
         let mock_struct = quote! {
             #(#attributes)*
-            struct #mock_type_name {
+            pub(crate) struct #mock_type_name {
                 given_behaviours: std::cell::RefCell<std::collections::HashMap<(&'static str, &'static str), Vec<GivenBehaviour>>>,
                 expect_behaviours: std::cell::RefCell<std::collections::HashMap<(&'static str, &'static str), Vec<ExpectBehaviour>>>,
                 verify_on_drop: bool,

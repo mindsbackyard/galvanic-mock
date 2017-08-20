@@ -117,8 +117,8 @@ pub fn handle_given(source: &str, absolute_position: usize) -> (String, String) 
 
                 let stmt_repr = format!("{}", stmt);
                 add_statements.push(match &stmt.repeat {
-                    &GivenRepeat::Always => quote!( #mock_var.add_given_behaviour(#ufc_trait_name, #method_name, GivenBehaviour::with(#stmt_id, binding.clone(), #stmt_repr)); ),
-                    &GivenRepeat::Times(ref expr) => quote!( #mock_var.add_given_behaviour(#ufc_trait_name, #method_name, GivenBehaviour::with_times(#expr, #stmt_id, binding.clone(), #stmt_repr)); ),
+                    &GivenRepeat::Always => quote!( #mock_var.add_given_behaviour(#ufc_trait_name, #method_name, mock::GivenBehaviour::with(#stmt_id, binding.clone(), #stmt_repr)); ),
+                    &GivenRepeat::Times(ref expr) => quote!( #mock_var.add_given_behaviour(#ufc_trait_name, #method_name, mock::GivenBehaviour::with_times(#expr, #stmt_id, binding.clone(), #stmt_repr)); ),
                 });
             }
 

@@ -135,43 +135,66 @@ pub fn use_mocks(_: TokenStream, input: TokenStream) -> TokenStream {
     }
 
     // once all macro invocations have been removed from the string (and replaced with the actual mock code) it can be parsed back into a function item
-    let fn_ = syn::parse_item(&reassembled).expect("Reassembled function whi");
-    let fn_ident = &fn_.ident;
-    let fn_vis = &fn_.vis;
-    let mod_fn = syn::Ident::from(format!("mod_{}", fn_ident));
+    let mut mock_using_item = syn::parse_item(&reassembled).expect("Reassembled function whi");
+    mock_using_item.vis = syn::Visibility::Public;
+
+    let item_ident = &mock_using_item.ident;
+    let item_vis = &mock_using_item.vis;
+    let mod_fn = syn::Ident::from(format!("mod_{}", item_ident));
+
+
+    if let syn::ItemKind::Mod(Some(ref mut mod_items)) = mock_using_item.node {
+        insert_use_generated_mocks_into_modules(mod_items);
+    }
 
     let mocks = handle_generate_mocks();
 
     let generated_mock = (quote! {
         #[allow(unused_imports)]
-        #fn_vis use self::#mod_fn::#fn_ident;
+        #item_vis use self::#mod_fn::#item_ident;
         mod #mod_fn {
             #![allow(dead_code)]
             #![allow(unused_imports)]
             #![allow(unused_variables)]
             use super::*;
-            use std;
 
-            #fn_
+            #mock_using_item
 
-            #(#mocks)*
+            pub(crate) mod mock {
+                use std;
+                use super::*;
+
+                #(#mocks)*
+            }
         }
     }).to_string();
 
+    debug(&item_ident, &generated_mock);
+    generated_mock.parse().unwrap()
+}
+
+fn insert_use_generated_mocks_into_modules(mod_items: &mut Vec<syn::Item>) {
+    for item in mod_items.iter_mut() {
+        if let syn::ItemKind::Mod(Some(ref mut sub_mod_items)) = item.node {
+            insert_use_generated_mocks_into_modules(sub_mod_items);
+        }
+    }
+    mod_items.push(syn::parse_item(quote!(pub use super::*;).as_str()).unwrap());
+}
+
+fn debug(item_ident: &syn::Ident, generated_mock: &str) {
     if let Some((_, path)) = env::vars().find(|&(ref key, _)| key == "GA_WRITE_MOCK") {
         if path.is_empty() {
             println!("{}", generated_mock);
         } else {
-            let success = File::create(Path::new(&path).join(&(fn_ident.to_string())))
+            let success = File::create(Path::new(&path).join(&(item_ident.to_string())))
                                .and_then(|mut f| f.write_all(generated_mock.as_bytes()));
             if let Err(err) = success {
-                eprintln!("Unable to write generated mock: {}", err);
+                eprintln!("Unable to write generated mock to file '{}' because: {}", path, err);
             }
         }
     }
-    generated_mock.parse().unwrap()
 }
-
 
 fn has_balanced_quotes(source: &str)  -> bool {
     let mut count = 0;
