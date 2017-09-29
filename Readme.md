@@ -10,11 +10,12 @@ This crate provides procedural macros (`#[mockable]`, `#[use_mocks]`) for mockin
  * mock **generic traits** and **traits with associated types**
  * mock **generic trait methods**
  * apply **#[derive(..)]** and other attributes to your mocks
- * **galvanic-assert** matchers like `eq`, `lt`, ... can be used in behaviours
- * integrate with **galvanic-test** (in development) and **galvanic-assert**
+ * **[galvanic-assert](https://www.github.com/mindsbackyard/galvanic-assert)** matchers like `eq`, `lt`, ... can be used in behaviours
+ * integrate with **[galvanic-test](https://www.github.com/mindsbackyard/galvanic-test)** and **[galvanic-assert](https://www.github.com/mindsbackyard/galvanic-assert)**
  * be used with your favourite test framework
 
-The crate will be part of **galvanic**---a complete test framework for **Rust**.
+ The crate is part of **galvanic**---a complete test framework for **Rust**.
+ The framework is shipped in three parts, so you can choose to use only the parts you need.
 
 ## A short introduction to galvanic-mock
 
