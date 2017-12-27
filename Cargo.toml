@@ -1,6 +1,6 @@
 [package]
 name = "galvanic-mock"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Christopher Bacher <mindsbackyard@gmail.com>"]
 
 description = """A behaviour-driven mocking framework for generic traits.

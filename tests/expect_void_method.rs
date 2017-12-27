@@ -19,17 +19,27 @@ use galvanic_mock::{mockable, use_mocks};
 
 #[mockable]
 trait TestTrait {
-    fn func(&self);
+    fn func(&self, x: i32);
 }
 
-#[test]
-#[use_mocks]
-fn test() {
-    let mock = new_mock!(TestTrait);
+mod test_times {
+    use super::*;
 
-    given! {
-        <mock as TestTrait>::func() then_return () always;
+    #[test]
+    #[use_mocks]
+    fn matching_expectation() {
+        let mock = new_mock!(TestTrait);
+
+        given! {
+            <mock as TestTrait>::func(|_| true) then_return ()  always;
+        }
+
+        expect_interactions! {
+            <mock as TestTrait>::func(|&a| a < 2) times(1);
+        }
+
+        mock.func(1);
+
+        mock.verify();
     }
-
-    mock.func();
 }

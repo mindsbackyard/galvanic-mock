@@ -79,6 +79,7 @@ lazy_static! {
 
 #[derive(Debug,Clone)]
 pub enum BehaviourMatcher {
+    Void,
     Explicit(syn::Expr),
     PerArgument(Vec<syn::Expr>)
 }
@@ -124,6 +125,7 @@ impl GivenStatement {
 impl ::std::fmt::Display for GivenStatement {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> Result<(), ::std::fmt::Error> {
         let match_expr = match &self.matcher {
+            &BehaviourMatcher::Void => String::new(),
             &BehaviourMatcher::Explicit(ref expr) => format!(" {} ", quote!(#expr)),
             &BehaviourMatcher::PerArgument(ref exprs) => format!("({})", exprs.iter().map(|e| quote!(#e).to_string()).collect::<Vec<_>>().join(", "))
         };
@@ -191,6 +193,7 @@ impl ExpectStatement {
 impl ::std::fmt::Display for ExpectStatement {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> Result<(), ::std::fmt::Error> {
         let match_expr = match &self.matcher {
+            &BehaviourMatcher::Void => String::new(),
             &BehaviourMatcher::Explicit(ref expr) => format!(" {} ", quote!(#expr)),
             &BehaviourMatcher::PerArgument(ref exprs) => format!("({})", exprs.iter().map(|e| quote!(#e).to_string()).collect::<Vec<_>>().join(", "))
         };

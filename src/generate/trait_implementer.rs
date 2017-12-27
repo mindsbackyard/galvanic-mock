@@ -105,54 +105,52 @@ impl<'a> TraitImplementer<'a> {
             signature.generics.where_clause.to_tokens(&mut tokens);
             tokens.append("{");
 
-            if let syn::FunctionRetTy::Ty(_) = signature.decl.output {
-                let args = self.generate_argument_names(&signature.decl.inputs);
+            let args = self.generate_argument_names(&signature.decl.inputs);
 
-                let given_behaviour_impls = self.given_statements.iter()
-                                                .filter(|stmt| stmt.method == item.ident)
-                                                .map(|stmt| implement_given_behaviour_matcher(stmt))
-                                                .collect::<Vec<_>>();
-                let expect_behaviour_impls = self.expect_statements.iter()
-                                                .filter(|stmt| stmt.method == item.ident)
-                                                .map(|stmt| implement_expect_behaviour_matcher(stmt))
-                                                .collect::<Vec<_>>();
+            let given_behaviour_impls = self.given_statements.iter()
+                                            .filter(|stmt| stmt.method == item.ident)
+                                            .map(|stmt| implement_given_behaviour_matcher(stmt))
+                                            .collect::<Vec<_>>();
+            let expect_behaviour_impls = self.expect_statements.iter()
+                                            .filter(|stmt| stmt.method == item.ident)
+                                            .map(|stmt| implement_expect_behaviour_matcher(stmt))
+                                            .collect::<Vec<_>>();
 
-                let trait_ty = &self.instantiated_trait.trait_ty;
-                let trait_name = quote!(#trait_ty).to_string();
-                let method_name = func_name.to_string();
+            let trait_ty = &self.instantiated_trait.trait_ty;
+            let trait_name = quote!(#trait_ty).to_string();
+            let method_name = func_name.to_string();
 
-                tokens.append(quote!{
-                    let curried_args = (#(#args,)*);
-                    for behaviour in self.expect_behaviours.borrow_mut().entry((#trait_name, #method_name)).or_insert_with(|| Vec::new()).iter() {
-                        #(
-                            #expect_behaviour_impls
-                        )*
+            tokens.append(quote!{
+                let curried_args = (#(#args,)*);
+                for behaviour in self.expect_behaviours.borrow_mut().entry((#trait_name, #method_name)).or_insert_with(|| Vec::new()).iter() {
+                    #(
+                        #expect_behaviour_impls
+                    )*
+                }
+
+                let mut maybe_remove_idx = None;
+                let mut return_value = None;
+                let mut all_given_behaviours_ref = self.given_behaviours.borrow_mut();
+                let given_behaviours = all_given_behaviours_ref.entry((#trait_name, #method_name)).or_insert_with(|| Vec::new());
+                for (idx, behaviour) in given_behaviours.iter().enumerate() {
+                    #(
+                        #given_behaviour_impls
+                    )*
+                }
+
+                if let Some(idx) = maybe_remove_idx {
+                    if (&given_behaviours[idx] as &GivenBehaviour).is_saturated() {
+                        given_behaviours.remove(idx);
                     }
+                }
 
-                    let mut maybe_remove_idx = None;
-                    let mut return_value = None;
-                    let mut all_given_behaviours_ref = self.given_behaviours.borrow_mut();
-                    let given_behaviours = all_given_behaviours_ref.entry((#trait_name, #method_name)).or_insert_with(|| Vec::new());
-                    for (idx, behaviour) in given_behaviours.iter().enumerate() {
-                        #(
-                            #given_behaviour_impls
-                        )*
-                    }
-
-                    if let Some(idx) = maybe_remove_idx {
-                        if (&given_behaviours[idx] as &GivenBehaviour).is_saturated() {
-                            given_behaviours.remove(idx);
-                        }
-                    }
-
-                    if let Some(value) = return_value {
-                        return value;
-                    }
-                    panic!("No matching given! statement found among the remaining ones: {}",
-                        given_behaviours.iter().map(|behaviour| format!("\n\t{}", behaviour.describe())).collect::<String>()
-                    )
-                });
-            }
+                if let Some(value) = return_value {
+                    return value;
+                }
+                panic!("No matching given! statement found among the remaining ones: {}",
+                    given_behaviours.iter().map(|behaviour| format!("\n\t{}", behaviour.describe())).collect::<String>()
+                )
+            });
 
             tokens.append("}");
             return Some(tokens);

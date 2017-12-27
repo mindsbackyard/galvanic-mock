@@ -19,7 +19,7 @@ use galvanic_mock::{mockable, use_mocks};
 
 #[mockable]
 trait TestTrait {
-    fn func(&self);
+    fn func(&self) -> usize;
 }
 
 #[test]
@@ -28,8 +28,8 @@ fn test() {
     let mock = new_mock!(TestTrait);
 
     given! {
-        <mock as TestTrait>::func() then_return () always;
+        <mock as TestTrait>::func() then_return 42usize always;
     }
 
-    mock.func();
+    assert_eq!(mock.func(), 42usize);
 }

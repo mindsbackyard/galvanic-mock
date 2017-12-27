@@ -31,7 +31,12 @@ named!(pub parse_bind -> BindingField,
 named!(parse_given_func -> (syn::Ident, BehaviourMatcher, Return, GivenRepeat),
     do_parse!(
         method: call!(syn::parse::ident) >>
-        args: alt!( delimited!(punct!("("), separated_list!(punct!(","), syn::parse::expr), punct!(")")) => { |es| BehaviourMatcher::PerArgument(es) }
+        args: alt!(
+              delimited!(punct!("("), separated_list!(punct!(","), syn::parse::expr), punct!(")")) => {
+                  |es: Vec<_>|
+                    if es.is_empty() { BehaviourMatcher::Void }
+                    else { BehaviourMatcher::PerArgument(es) }
+              }
             | call!(syn::parse::expr) => { |e| BehaviourMatcher::Explicit(e) }
         ) >>
         return_stmt: alt!( preceded!(keyword!("then_return"), syn::parse::expr) => { |e| Return::FromValue(e) }

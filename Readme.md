@@ -344,6 +344,9 @@ Note that the semicolon at the end of the block is *not optional*.
 #### Argument patterns
 
 Preconditions on the method arguments can be defined in two forms: **per-argument** and **explicit**.
+
+##### Per-Argument Patterns
+
 Most of the time per-argument patterns will be enough and are considered more readable.
 ```Rust
 given! {
@@ -357,6 +360,16 @@ We will learn later how we can **bind** values from the outer scope to make them
 If the `galvanic_assert_integration` feature is enabled then the matchers from `galvanic-assert` can be used instead of the closure syntax.
 See the introduction for some examples
 
+##### Special Case: Void Patterns
+
+To match a method without arguments we have to use per-argument patterns though without passing a pattern. We refer to the form below as *void pattern*.
+```Rust
+given! {
+    <mock as MyTrait>::func_without_args() then_return 1 always;
+}
+```
+
+##### Explicit Patterns
 The second form receives all arguments at once in a tuple.
 ```Rust
 given! {
@@ -367,6 +380,8 @@ Again the tuple of curried arguments is passed by reference.
 Note that we have to use `ref` when decomposing tuples with non-copyable objects (as in any other pattern in Rust).
 Observe the **lack of brackets** after `func` in this form.
 The brackets are used to distinguish between the two variants.
+
+**Note that *explicit patterns* cannot be used for methods without arguments.**
 
 #### Returning values
 

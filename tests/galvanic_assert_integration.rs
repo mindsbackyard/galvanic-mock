@@ -12,7 +12,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#![cfg(feature = "galvanic_assert_integration")]
 #![feature(proc_macro)]
+
 extern crate galvanic_mock;
 #[allow(unused_imports)] use galvanic_mock::{mockable, use_mocks};
 extern crate galvanic_assert;
@@ -23,7 +25,6 @@ trait TestTrait {
     fn func(&self, x: i32, y: f64) -> i32;
 }
 
-#[cfg(feature = "galvanic_assert_integration")]
 #[test]
 #[use_mocks]
 fn test_per_argument_matcher_with_galvanic_assert_matchers() {
@@ -36,7 +37,6 @@ fn test_per_argument_matcher_with_galvanic_assert_matchers() {
     assert_eq!(mock.func(1, 4.4), 12);
 }
 
-#[cfg(feature = "galvanic_assert_integration")]
 #[test]
 #[use_mocks]
 fn test_explicit_matcher_with_galvanic_assert_matcher() {

@@ -81,6 +81,7 @@ pub fn implement_given_behaviour_matcher(statement: &GivenStatement) -> quote::T
     };
 
     let match_expr = match statement.matcher {
+        BehaviourMatcher::Void => quote!{ true },
         BehaviourMatcher::Explicit(ref expr) => quote!{ (#expr).match_args(&curried_args) },
         BehaviourMatcher::PerArgument(ref exprs) => {
             let mut arg_tokens = quote::Tokens::new();
@@ -205,6 +206,7 @@ pub fn implement_expect_behaviour() -> Vec<quote::Tokens> {
 
 pub fn implement_expect_behaviour_matcher(statement: &ExpectStatement) -> quote::Tokens {
     let match_expr = match statement.matcher {
+        BehaviourMatcher::Void => quote!{ true },
         BehaviourMatcher::Explicit(ref expr) => quote!{ (#expr).match_args(&curried_args) },
         BehaviourMatcher::PerArgument(ref exprs) => {
             let mut arg_tokens = quote::Tokens::new();

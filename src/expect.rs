@@ -31,7 +31,12 @@ named!(pub parse_expect_interaction -> ExpectStatement,
     do_parse!(
         punct!("<") >> mock_var: call!(syn::parse::ident) >> keyword!("as") >> ufc_trait: call!(syn::parse::path) >> punct!(">") >>
         punct!("::") >> method: call!(syn::parse::ident) >>
-        args: alt!( delimited!(punct!("("), separated_list!(punct!(","), syn::parse::expr), punct!(")")) => { |es| BehaviourMatcher::PerArgument(es) }
+        args: alt!(
+              delimited!(punct!("("), separated_list!(punct!(","), syn::parse::expr), punct!(")")) => {
+                    |es: Vec<_>|
+                        if es.is_empty() { BehaviourMatcher::Void }
+                        else { BehaviourMatcher::PerArgument(es) }
+              }
             | call!(syn::parse::expr) => { |e| BehaviourMatcher::Explicit(e) }
         ) >>
         repeat: alt!( preceded!(keyword!("times"), syn::parse::expr) => { |e| ExpectRepeat::Times(e) }
